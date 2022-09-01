@@ -3,7 +3,7 @@
 objref vBoxSomaInsertion
 
 // Some staff related to user choice
-userChoiceForSomaSphereDiam = -1
+userChoiceForSomaSize = -1
 isRepeatedCall = 0
 strdef topLevelCallHocCommand, userChoiceForInputFilePathName
 
@@ -13,7 +13,7 @@ proc userChoiceReset() {
     isRepeatedCall = 0
     topLevelCallHocCommand = ""
     userChoiceForInputFilePathName = ""
-    userChoiceForSomaSphereDiam = -1
+    userChoiceForSomaSize = -1
 }
 
 // Handler of "OK" button for "Soma insertion" widget

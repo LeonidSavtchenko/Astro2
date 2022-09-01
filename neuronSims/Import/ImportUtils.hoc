@@ -134,24 +134,24 @@ func loadSwcOrOtherFile() { local isNoCleanUpMode, isError, isSomaMissing, sysCo
     inFilePathName = $s1
     isNoCleanUpMode = $2
     
-    if (userChoiceForSomaSphereDiam == -1) {
+    if (userChoiceForSomaSize == -1) {
         isError = checkIfSomaIsMissingInThisGeometryFile(inFilePathName, isNoCleanUpMode, &isSomaMissing)
         if (isError) {
             return 1
         }
         
         if (isSomaMissing) {
-            defaultUserChoiceHocCommand = "userChoiceForSomaSphereDiam = 10"
+            defaultUserChoiceHocCommand = "userChoiceForSomaSize = 10"
             
             // Ask user to make a choice to insert proper soma
             vBoxSomaInsertion = new VBox()
             vBoxSomaInsertion.intercept(1)
             xpanel("Soma insertion")
-            xlabel("The input geometry file does not define soma. But it is required for this simulation.")
-            xlabel("We will create soma as a ball of diameter \"d\" and connect it to the first dendrite.")
+            xlabel("The input geometry file does not define soma, but it is required for this simulation.")
+            xlabel("We will create soma as a cylinder of diameter and length \"d\" and connect root dendrites to its centre.")
             xlabel("Please specify the input cell type:")
             xradiobutton("Astrocyte (d = 10 um)", defaultUserChoiceHocCommand, 1)
-            xradiobutton("Neuron (d = 15 um)", "userChoiceForSomaSphereDiam = 15")
+            xradiobutton("Neuron (d = 15 um)", "userChoiceForSomaSize = 15")
             xbutton("OK", "somaInsertionWidgetOkHandler()")
             xpanel()
             vBoxSomaInsertion.dismiss_action("somaInsertionWidgetDismissHandler()")
@@ -180,9 +180,9 @@ func loadSwcOrOtherFile() { local isNoCleanUpMode, isError, isSomaMissing, sysCo
     sprint(appPathName, appPathNameTempl, getcwd())
     outFilePathNameTempl = "%sImport/temp_folder/last_converted.hoc"
     sprint(outFilePathName, outFilePathNameTempl, getcwd())
-    if (userChoiceForSomaSphereDiam != -1) {
-        extraArgTempl = "--forceSphereSoma %g"
-        sprint(extraArg, extraArgTempl, userChoiceForSomaSphereDiam)
+    if (userChoiceForSomaSize != -1) {
+        extraArgTempl = "--forceCylinderSoma %g %g"
+        sprint(extraArg, extraArgTempl, userChoiceForSomaSize, userChoiceForSomaSize)
     } else {
         extraArg = ""
     }
