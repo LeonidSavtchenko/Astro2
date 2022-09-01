@@ -1,5 +1,8 @@
 
 load_file("StringUtils.hoc")
+load_file("CheckUtils.hoc")
+load_file("WidgetUtils.hoc")
+
 
 // Create or clean up the temporary folder
 // $s1 - The temporary folder relative path and name
@@ -20,38 +23,6 @@ func createOrCleanUpTempFolder() { local sysComRes, isError
     return isError
 }
 
-// Check if this HOC file needs correction
-// $s1 - Input file path and name
-// Returns 0/1 flag indicating whether it needs correction
-func checkIfThisHocFileNeedsCorrection() { local whetherNeedsCorrection, len localobj inFile
-    strdef inFilePathName, inLine
-    
-    inFilePathName = $s1
-    
-    // Open input HOC file for reading
-    inFile = new File()
-    inFile.ropen(inFilePathName)
-    
-    whetherNeedsCorrection = 1
-    
-    while (1) {
-        len = inFile.gets(inLine)
-        if (len == -1) {
-            break
-        }
-        
-        if (containsSubstring(inLine, "OriginalDendrite") || containsSubstring(inLine, "NumberDendrites") || containsSubstring(inLine, "SeedNumber")) {
-            // Assume the file was designed to be input of Astro
-            whetherNeedsCorrection = 0
-            break
-        }
-    }
-    
-    inFile.close()
-    
-    return whetherNeedsCorrection
-}
-
 // Load HOC file (first do some correction of the file, then load it, and then do some validation)
 // $s1 - Input HOC file path and name
 // $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
@@ -63,7 +34,7 @@ func loadHocFileWithCorrection() { local isNoCleanUpMode, len, isDendriteDefinit
     
     if (!isNoCleanUpMode) {
         // Create the temporary folder if necessary
-        isError = createOrCleanUpTempFolder("temp_folder")
+        isError = createOrCleanUpTempFolder("Import/temp_folder")
         if (isError) {
             return 1
         }
@@ -74,7 +45,7 @@ func loadHocFileWithCorrection() { local isNoCleanUpMode, len, isDendriteDefinit
     inFile.ropen(inFilePathName)
     
     // Create and open output HOC file for writing
-    outFilePathNameTempl = "%stemp_folder/last_corrected.hoc"
+    outFilePathNameTempl = "%sImport/temp_folder/last_corrected.hoc"
     sprint(outFilePathName, outFilePathNameTempl, getcwd())
     outFile = new File()
     outFile.wopen(outFilePathName)
@@ -135,17 +106,17 @@ func loadHocFileWithCorrection() { local isNoCleanUpMode, len, isDendriteDefinit
     
     load_file(outFilePathName)
     
-    if (!isDefined("soma")) {
+    if (isUndefined("soma")) {
         print "Import Failed: The imported file does not define \"soma\" object"
         return 1
     }
     
-    if (!isDefined("dendrite")) {
+    if (isUndefined("dendrite")) {
         print "Import Failed: The imported file does not define \"dendrite\" array"
         return 1
     }
     
-    if (!isDefined("OriginalDendrite") || !isDefined("NumberDendrites") || !isDefined("SeedNumber")) {
+    if (isUndefined("OriginalDendrite") || isUndefined("NumberDendrites") || isUndefined("SeedNumber")) {
         print "Import Failed: At least one of the following variables is not defined: OriginalDendrite, NumberDendrites, SeedNumber"
         return 1
     }
@@ -156,28 +127,67 @@ func loadHocFileWithCorrection() { local isNoCleanUpMode, len, isDendriteDefinit
 // Import SWC or any other file supported by NLMorphologyConverter
 // $s1 - Input file path and name
 // $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
-// Returns 0/1 flag indicating success/error
-func loadSwcOrOtherFile() { local isNoCleanUpMode, isError, sysComRes
-    strdef inFilePathName, appPathNameTempl, appPathName, outFilePathNameTempl, outFilePathName, sysCommandTempl, command
+// Returns 0/1 flag indicating success/error or -1 if waiting for user input
+func loadSwcOrOtherFile() { local isNoCleanUpMode, isError, isSomaMissing, sysComRes
+    strdef inFilePathName, defaultUserChoiceHocCommand, appPathNameTempl, appPathName, outFilePathNameTempl, outFilePathName, extraArgTempl, extraArg, sysCommandTempl, command
     
     inFilePathName = $s1
     isNoCleanUpMode = $2
     
+    if (userChoiceForSomaSphereDiam == -1) {
+        isError = checkIfSomaIsMissingInThisGeometryFile(inFilePathName, isNoCleanUpMode, &isSomaMissing)
+        if (isError) {
+            return 1
+        }
+        
+        if (isSomaMissing) {
+            defaultUserChoiceHocCommand = "userChoiceForSomaSphereDiam = 10"
+            
+            // Ask user to make a choice to insert proper soma
+            vBoxSomaInsertion = new VBox()
+            vBoxSomaInsertion.intercept(1)
+            xpanel("Soma insertion")
+            xlabel("The input geometry file does not define soma. But it is required for this simulation.")
+            xlabel("We will create soma as a ball of diameter \"d\" and connect it to the first dendrite.")
+            xlabel("Please specify the input cell type:")
+            xradiobutton("Astrocyte (d = 10 um)", defaultUserChoiceHocCommand, 1)
+            xradiobutton("Neuron (d = 15 um)", "userChoiceForSomaSphereDiam = 15")
+            xbutton("OK", "somaInsertionWidgetOkHandler()")
+            xpanel()
+            vBoxSomaInsertion.dismiss_action("somaInsertionWidgetDismissHandler()")
+            vBoxSomaInsertion.intercept(0)
+            vBoxSomaInsertion.map("Soma insertion", 550, 350, -1, -1)
+            
+            // In case if user does not touch radiobuttons, and just clicks "OK"
+            execute(defaultUserChoiceHocCommand)
+            
+            // Unfortunately, we have to exit all the call stack now even though user is still making a choice
+            // The "OK" button handler will repeat the top level call again
+            return -1
+        }
+    }
+    
     if (!isNoCleanUpMode) {
         // Create the temporary folder if necessary
-        isError = createOrCleanUpTempFolder("temp_folder")
+        isError = createOrCleanUpTempFolder("Import/temp_folder")
         if (isError) {
             return 1
         }
     }
     
     // Convert the selected file to HOC with NLMorphologyConverter and save to the temporary folder
-    appPathNameTempl = "%s3rdParty/NLMorphologyConverter/NLMorphologyConverter.exe"
+    appPathNameTempl = "%sImport/3rdParty/NLMorphologyConverter/NLMorphologyConverter.exe"
     sprint(appPathName, appPathNameTempl, getcwd())
-    outFilePathNameTempl = "%stemp_folder/last_converted.hoc"
+    outFilePathNameTempl = "%sImport/temp_folder/last_converted.hoc"
     sprint(outFilePathName, outFilePathNameTempl, getcwd())
-    sysCommandTempl = "call \"%s\" \"%s\" \"%s\" NeuronHOC"
-    sprint(command, sysCommandTempl, appPathName, inFilePathName, outFilePathName)
+    if (userChoiceForSomaSphereDiam != -1) {
+        extraArgTempl = "--forceSphereSoma %g"
+        sprint(extraArg, extraArgTempl, userChoiceForSomaSphereDiam)
+    } else {
+        extraArg = ""
+    }
+    sysCommandTempl = "call \"%s\" \"%s\" \"%s\" NeuronHOC %s"
+    sprint(command, sysCommandTempl, appPathName, inFilePathName, outFilePathName, extraArg)
     sysComRes = system(command)
     if (sysComRes != 0) {
         // Just for sanity. Actually, NLMorphologyConverter does not return error codes, but rather prints a message and creates a minimal output file
@@ -192,77 +202,88 @@ func loadSwcOrOtherFile() { local isNoCleanUpMode, isError, sysComRes
 
 // Import SWC file from ZIP archive downloaded from NeuroMorpho.org
 // $s1 - Input ZIP file path and name
-// Returns 0/1 flag indicating success/error
-func loadSwcFileFromZipArchive() { local isError, sysComRes
+// Returns 0/1 flag indicating success/error or -1 if waiting for user input
+func loadSwcFileFromZipArchive() { local isError, status, sysComRes
     strdef inZipFilePathName, appPathNameTempl, appPathName, outFolderPathNameTempl, outFolderPathName, sysCommandTempl, command, swcFilePathNameTempl, swcFilePathName
     
     inZipFilePathName = $s1
     
-    // Create the temporary folders if necessary
-    isError = createOrCleanUpTempFolder("temp_folder")
-    if (isError) {
-        return 1
-    }
-    isError = createOrCleanUpTempFolder("temp_folder/last_unzipped")
-    if (isError) {
-        return 1
-    }
-    
-    // Unzip the selected archive with 7-Zip and save to the temporary folder
-    appPathNameTempl = "%s3rdParty/7-Zip/7z.exe"
-    sprint(appPathName, appPathNameTempl, getcwd())
-    outFolderPathNameTempl = "%stemp_folder/last_unzipped"
+    outFolderPathNameTempl = "%sImport/temp_folder/last_unzipped"
     sprint(outFolderPathName, outFolderPathNameTempl, getcwd())
-    sysCommandTempl = "call \"%s\" e \"%s\" -o\"%s\" > NUL 2> NUL"
-    sprint(command, sysCommandTempl, appPathName, inZipFilePathName, outFolderPathName)
-    sysComRes = system(command)
-    if (sysComRes != 0) {
-        print "Import Failed: Cannot unzip the archive with 7-Zip"
-        return 1
-    }
     
-    // Rename the file *.CNG.swc to input_file.swc
-    sysCommandTempl = "cd \"%s\" && ren *.CNG.swc input_file.swc 2> NUL"
-    sprint(command, sysCommandTempl, outFolderPathName)
-    sysComRes = system(command)
-    isError = (sysComRes != 0)
-    if (isError) {
-        // Maybe just more than one swc-file in the archive, so only the first one is renamed successfully
-        // print "Import Failed: Cannot rename the input SWC file"
-        isError = 0
+    if (!isRepeatedCall) {
+        // Create the temporary folders if necessary
+        isError = createOrCleanUpTempFolder("Import/temp_folder")
+        if (isError) {
+            return 1
+        }
+        isError = createOrCleanUpTempFolder("Import/temp_folder/last_unzipped")
+        if (isError) {
+            return 1
+        }
+        
+        // Unzip the selected archive with 7-Zip and save to the temporary folder
+        appPathNameTempl = "%sImport/3rdParty/7-Zip/7z.exe"
+        sprint(appPathName, appPathNameTempl, getcwd())
+        sysCommandTempl = "call \"%s\" e \"%s\" -o\"%s\" > NUL 2> NUL"
+        sprint(command, sysCommandTempl, appPathName, inZipFilePathName, outFolderPathName)
+        sysComRes = system(command)
+        if (sysComRes != 0) {
+            print "Import Failed: Cannot unzip the archive with 7-Zip"
+            return 1
+        }
+        
+        // Rename the file *.CNG.swc to input_file.swc
+        sysCommandTempl = "cd \"%s\" && ren *.CNG.swc input_file.swc 2> NUL"
+        sprint(command, sysCommandTempl, outFolderPathName)
+        sysComRes = system(command)
+        isError = (sysComRes != 0)
+        if (isError) {
+            // Maybe just more than one swc-file in the archive, so only the first one is renamed successfully
+            // print "Import Failed: Cannot rename the input SWC file"
+            isError = 0
+        }
     }
     
     swcFilePathNameTempl = "%s/input_file.swc"
     sprint(swcFilePathName, swcFilePathNameTempl, outFolderPathName)
-    isError = loadSwcOrOtherFile(swcFilePathName, 1)
+    status = loadSwcOrOtherFile(swcFilePathName, 1)
     
-    return isError
+    return status
 }
 
 // Import a file into Astro
-// Returns - 0/1 flag indicating success/error
-func loadHocOrSwcOrZipOrOtherFile() { local isError localobj file
+// $s1 - HOC command to repeat the top level call once again
+// Returns 0/1 flag indicating success/error or -1 if waiting for user input
+func loadHocOrSwcOrZipOrOtherFile() { local isError, status localobj file
     strdef filePathName, fileExt
     
-    file = new File()
-    file.chooser("r", "Load", "*.*", "Load", "Cancel", getcwd())
-    isError = (file.chooser() == 0)
-    if (isError) {
-        print "File wasn't selected"
-        return 1
-    }
+    topLevelCallHocCommand = $s1
     
-    filePathName = file.getname
+    if (!isRepeatedCall) {
+        file = new File()
+        file.chooser("r", "Load", "*.*", "Load", "Cancel", getcwd())
+        isError = (file.chooser() == 0)
+        if (isError) {
+            print "File wasn't selected"
+            return 1
+        }
+        
+        filePathName = file.getname
+        userChoiceForInputFilePathName = filePathName
+    } else {
+        filePathName = userChoiceForInputFilePathName
+    }
     
     getFileExt(filePathName, fileExt)
     
     if (stringsEqual(fileExt, "hoc") || stringsEqual(fileExt, "HOC")) {
         if (checkIfThisHocFileNeedsCorrection(filePathName)) {
-            isError = loadHocFileWithCorrection(filePathName, 0)
+            status = loadHocFileWithCorrection(filePathName, 0)
         } else {
             // Just for sanity
-            isError = createOrCleanUpTempFolder("temp_folder")
-            if (isError) {
+            status = createOrCleanUpTempFolder("Import/temp_folder")
+            if (status) {
                 return 1
             }
             
@@ -274,14 +295,14 @@ func loadHocOrSwcOrZipOrOtherFile() { local isError localobj file
             return 1
         }
         if (stringsEqual(fileExt, "zip") || stringsEqual(fileExt, "ZIP")) {
-            isError = loadSwcFileFromZipArchive(filePathName)
+            status = loadSwcFileFromZipArchive(filePathName)
         } else {
-            isError = loadSwcOrOtherFile(filePathName, 0)
+            status = loadSwcOrOtherFile(filePathName, 0)
         }
     }
     
-    if (isError) {
-        return 1
+    if (status != 0) {
+        return status
     }
     
     showSelectedGeometry()

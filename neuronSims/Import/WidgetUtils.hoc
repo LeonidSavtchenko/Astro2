@@ -1,0 +1,40 @@
+
+// "Soma insertion" widget
+objref vBoxSomaInsertion
+
+// Some staff related to user choice
+userChoiceForSomaSphereDiam = -1
+isRepeatedCall = 0
+strdef topLevelCallHocCommand, userChoiceForInputFilePathName
+
+
+// Reset the variables related to user choice
+proc userChoiceReset() {
+    isRepeatedCall = 0
+    topLevelCallHocCommand = ""
+    userChoiceForInputFilePathName = ""
+    userChoiceForSomaSphereDiam = -1
+}
+
+// Handler of "OK" button for "Soma insertion" widget
+proc somaInsertionWidgetOkHandler() {
+    // Close the widget
+    vBoxSomaInsertion.unmap()
+    
+    // Call the top level proc once again, because we have exited all the call stack
+    // (Now user has made choices, so we won't show the same widgets again)
+    isRepeatedCall = 1
+    execute(topLevelCallHocCommand)
+    
+    // Reset the variables related to user choice
+    userChoiceReset()
+}
+
+// Handler of "X" button for "Soma insertion" widget
+proc somaInsertionWidgetDismissHandler() {
+    // Close the widget
+    vBoxSomaInsertion.unmap()
+    
+    // Reset the variables related to user choice
+    userChoiceReset()
+}

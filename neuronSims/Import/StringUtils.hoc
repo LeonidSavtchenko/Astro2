@@ -38,9 +38,9 @@ func stringsEqual() {
 // Check if given variable is defined
 // $s1 - The variable name
 // Returns 0/1 flag
-func isDefined() { localobj strFunc
+func isUndefined() { localobj strFunc
     strFunc = new StringFunctions()
-    return strFunc.is_name($s1)
+    return !strFunc.is_name($s1)
 }
 
 // Get file extension
