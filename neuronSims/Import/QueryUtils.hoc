@@ -1,0 +1,54 @@
+
+// Get names of all sections created in the imported HOC file
+// Returns List of String objects containing all unique names
+obfunc getAllSectionNames() { local isFound, idx localobj secNames, strFunc
+    strdef secName
+    
+    secNames = new List()
+    strFunc = new StringFunctions()
+    
+    forall {
+        idx = strFunc.head(secname(), "\\[", secName)
+        if (idx == -1) {
+            secName = secname()
+        }
+        
+        // Check if we have found this name before
+        isFound = 0
+        for (idx = 0; idx < secNames.count(); idx += 1) {
+            if (stringsEqual(secName, secNames.o(idx).s)) {
+                isFound = 1
+                break
+            }
+        }
+        
+        if (!isFound) {
+            secNames.append(new String(secName))
+        }
+    }
+    
+    return secNames
+}
+
+// Get the number of dendrites in the imported geometry (OriginalDendrite)
+// $s1 - The dendrite section name
+// Returns OriginalDendrite
+func getNumberOfDendrites() { local numDend
+    strdef dendriteSectionName, findSecRegex
+    
+    dendriteSectionName = $s1
+    
+    sprint(findSecRegex, "%s[.*]", dendriteSectionName)
+    
+    numDend = 0
+    forsec findSecRegex {
+        numDend += 1
+    }
+    
+    if (numDend == 0) {
+        // The dendrite was defined as an object rather than array, so the regex didn't hit it
+        numDend = 1
+    }
+    
+    return numDend
+}

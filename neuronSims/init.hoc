@@ -35,8 +35,8 @@ xpanel("Number of leaves")
 
 load_file("nrngui.hoc")
 load_file("Utils.hoc")
-load_file("Import/ImportUtils.hoc")
 load_file("NanoDistrFromFile.hoc")
+load_file("Import/Import.hoc")
 
 // UI
 objref vBoxSelectGeometry, plotShapeGeometry, vBoxSelectGeometryReal
@@ -56,12 +56,12 @@ proc showSelectedGeometry() {
 
 // Loads geometry file.
 proc loadGeometryFile() {
-    loadHocOrSwcOrZipOrOtherFile("loadGeometryFile()")
+    importHocOrSwcOrZipOrOtherFile("loadGeometryFile()")
 }
 //************************************************************************
 // Geometry of EndFoot
 proc loadGeometryEndFootFile() { local status
-    status = loadHocOrSwcOrZipOrOtherFile("loadGeometryEndFootFile()")
+    status = importHocOrSwcOrZipOrOtherFile("loadGeometryEndFootFile()")
     if (status != 0) {
         return
     }
@@ -89,7 +89,7 @@ ScaleGeometryParameters=1 // 1 is artificial astrocyte geometry
 // Loads geometry file of reconstructed Astrocyte.
 // The parameter allows to fir the data file to the real geometry
 proc loadGeometryFileReconstract() { local status
-    status = loadHocOrSwcOrZipOrOtherFile("loadGeometryFileReconstract()")
+    status = importHocOrSwcOrZipOrOtherFile("loadGeometryFileReconstract()")
     if (status != 0) {
         return
     }

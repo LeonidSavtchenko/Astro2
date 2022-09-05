@@ -16,7 +16,7 @@ objref electricalStim, current, synapticInput, NetInput
 // $8 - Number of stimulus
 // $9 - Interval between stimulus
 proc stimulateConstant()  { // Procedure of different stimulations
-    soma {        
+    soma_ref.o(0).sec {        
         electricalStim = new NetStim(0.5)
         electricalStim.interval  = $9    //ms
         electricalStim.start = 0      // ms

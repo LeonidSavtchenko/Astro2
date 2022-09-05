@@ -1,30 +1,10 @@
 
-// Replace a substring within a string
+// Check if given string is empty
 // $s1 - Input string
-// $s2 - Substring to find (regular expression)
-// $s3 - Replacement substring
-// $s4 - (Output) The resulting string
-proc replaceSubstring() { localobj strFunc
-    strdef inStr, findStrRegex, replStr, outStr, head, tail
-    inStr = $s1
-    findStrRegex = $s2
-    replStr = $s3
-    
-    strFunc = new StringFunctions()
-    strFunc.head(inStr, findStrRegex, head)
-    strFunc.tail(inStr, findStrRegex, tail)
-    sprint(outStr, "%s%s%s", head, replStr, tail)
-    
-    $s4 = outStr
-}
-
-// Check if given string contains a substring
-// $s1 - Input string
-// $s2 - Substring to find
 // Returns 0/1 flag
-func containsSubstring() { localobj strFunc
+func stringEmpty() { localobj strFunc
     strFunc = new StringFunctions()
-    return strFunc.substr($s1, $s2) != -1
+    return strFunc.len($s1) == 0
 }
 
 // Check if given two string are equal
@@ -35,33 +15,11 @@ func stringsEqual() {
     return strcmp($s1, $s2) == 0
 }
 
-// Check if given variable is defined
-// $s1 - The variable name
+// Check if given string contains a substring
+// $s1 - Input string
+// $s2 - Substring to find
 // Returns 0/1 flag
-func isUndefined() { localobj strFunc
+func containsSubstring() { localobj strFunc
     strFunc = new StringFunctions()
-    return !strFunc.is_name($s1)
-}
-
-// Get file extension
-// $s1 - File path and name
-// $s2 - (Output) The file extension (without dot)
-proc getFileExt() { localobj strFunc
-    strdef filePathName, fileExt, tempStr
-    filePathName = $s1
-    
-    strFunc = new StringFunctions()
-    
-    sprint(tempStr, "%s", filePathName)
-    while (1) {
-        strFunc.tail(tempStr, "\\.", fileExt)
-        if (strFunc.len(fileExt) == 0) {
-            fileExt = tempStr
-            break
-        } else {
-            sprint(tempStr, "%s", fileExt)
-        }
-    }
-    
-    $s2 = fileExt
+    return strFunc.substr($s1, $s2) != -1
 }

@@ -10,7 +10,7 @@ objref stimFreq
 // $4 - Amplitude
 // $5 - Phase
 proc simulateFrequency()  {
-    soma {
+    soma_ref.o(0).sec {
         stimFreq = new IClampSin(0.5)
         stimFreq.del = $1       // ms
         stimFreq.dur = $2       // ms

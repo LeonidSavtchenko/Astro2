@@ -1,8 +1,9 @@
 
-// Check if this HOC file needs correction to be compatible with Astro
+// Check if this HOC file was designed to be input of Astro 1.0, and so follows the old style
+// (i.e. defines OriginalDendrite, NumberDendrites, SeedNumber and reserves extra space in dendrite array)
 // $s1 - Input file path and name
-// Returns 0/1 flag indicating whether it needs correction
-func checkIfThisHocFileNeedsCorrection() { local whetherNeedsCorrection, len localobj inFile
+// Returns 0/1 flag
+func checkIfThisHocFileIsOfOldStyle() { local isOfOldStyle, len localobj inFile
     strdef inFilePathName, inLine
     
     inFilePathName = $s1
@@ -11,7 +12,7 @@ func checkIfThisHocFileNeedsCorrection() { local whetherNeedsCorrection, len loc
     inFile = new File()
     inFile.ropen(inFilePathName)
     
-    whetherNeedsCorrection = 1
+    isOfOldStyle = 0
     
     while (1) {
         len = inFile.gets(inLine)
@@ -20,15 +21,15 @@ func checkIfThisHocFileNeedsCorrection() { local whetherNeedsCorrection, len loc
         }
         
         if (containsSubstring(inLine, "OriginalDendrite") || containsSubstring(inLine, "NumberDendrites") || containsSubstring(inLine, "SeedNumber")) {
-            // Assume the file was designed to be input of Astro
-            whetherNeedsCorrection = 0
+            // Assume the file was designed to be input of the old version of Astro
+            isOfOldStyle = 1
             break
         }
     }
     
     inFile.close()
     
-    return whetherNeedsCorrection
+    return isOfOldStyle
 }
 
 // Check if this geometry file does not define soma
@@ -93,6 +94,39 @@ func checkIfSomaIsMissingInThisGeometryFile() { local isNoCleanUpMode, isError, 
     }
     
     $&3 = isSomaMissing
+    
+    return 0
+}
+
+// Check if the imported HOC file declares any top level names which will collide with those ones reserved by the importer
+// Returns 0/1 flag indicating ok/error
+func checkTopLevelNamesCollision() { local idx localobj reservedNames, collidedNames, strFunc
+    reservedNames = new List()
+    collidedNames = new List()
+    strFunc = new StringFunctions()
+    
+    reservedNames.append(new String("soma_ref"))
+    reservedNames.append(new String("dendrite_ref"))
+    reservedNames.append(new String("_extraDendrite"))
+    reservedNames.append(new String("_secRef"))
+    
+    for (idx = 0; idx < reservedNames.count(); idx += 1) {
+        if (strFunc.is_name(reservedNames.o(idx).s)) {
+            collidedNames.append(reservedNames.o(idx))
+        }
+    }
+    
+    if (collidedNames.count() != 0) {
+        print "Import Failed:"
+        print "The importer reserves several names on the top level for its own needs."
+        print "If these names are declared in the imported HOC file, names collision will happen."
+        print "Please do some renaming in the HOC file so we can import it correctly."
+        print "These names must be changed:"
+        printListOfStrings(collidedNames)
+        print "The list of names reserved by the importer:"
+        printListOfStrings(reservedNames)
+        return 1
+    }
     
     return 0
 }

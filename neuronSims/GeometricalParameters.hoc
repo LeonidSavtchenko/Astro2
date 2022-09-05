@@ -38,8 +38,8 @@ proc calculateGeometricalParams() {local i, distanceToCenter, SectionsInside, Vo
     vectDiam = new Vector()
     vecDendrDist = new Vector()
 
-    WHERE = 0.5                 // Location in the soma that is the reference point
-    soma distance(0, WHERE)     // This sets the origin for distance calculations
+    WHERE = 0.5                             // Location in the soma that is the reference point
+    soma_ref.o(0).sec distance(0, WHERE)    // This sets the origin for distance calculations
 
     SectionsInside = 0
     VolumeSum = 0               // um^3 volume of the local astrosyte
@@ -103,7 +103,7 @@ proc calculateGeometricalParams() {local i, distanceToCenter, SectionsInside, Vo
 	totalDiameter=0
 //	f1.wopen("filedata.txt")
     for i = 0, OriginalDendrite {
-        dendrite[i] {
+        dendrite_ref.o(i).sec {
             vectDiam.append(diam)
 		//	TotalLength=TotalLength+L
 		//	totalDiameter=totalDiameter+diam

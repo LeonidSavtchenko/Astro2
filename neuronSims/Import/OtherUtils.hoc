@@ -1,0 +1,236 @@
+
+// Get file extension
+// $s1 - File path and name
+// $s2 - (Output) The file extension (without dot)
+proc getFileExt() { localobj strFunc
+    strdef filePathName, fileExt, tempStr
+    filePathName = $s1
+    
+    strFunc = new StringFunctions()
+    
+    sprint(tempStr, "%s", filePathName)
+    while (1) {
+        strFunc.tail(tempStr, "\\.", fileExt)
+        if (stringEmpty(fileExt)) {
+            fileExt = tempStr
+            break
+        } else {
+            sprint(tempStr, "%s", fileExt)
+        }
+    }
+    
+    $s2 = fileExt
+}
+
+// Create or clean up the temporary folder
+// $s1 - The temporary folder relative path and name
+// Returns 0/1 flag indicating success/error
+func createOrCleanUpTempFolder() { local sysComRes, isError
+    strdef tempFolderRelPathName, tempFolderPathName, sysCommandTempl, command
+    
+    tempFolderRelPathName = $s1
+    
+    sprint(tempFolderPathName, "%s%s", getcwd(), tempFolderRelPathName)
+    sysCommandTempl = "if not exist \"%s\" (mkdir \"%s\") else (rmdir /s /q \"%s\" && mkdir \"%s\")"
+    sprint(command, sysCommandTempl, tempFolderPathName, tempFolderPathName, tempFolderPathName, tempFolderPathName)
+    sysComRes = system(command)
+    isError = (sysComRes != 0)
+    if (isError) {
+        print "Import Failed: Cannot create or clean up the temporary folder"
+    }
+    return isError
+}
+
+// Print all strings from the list
+// $o1 - The List of String objects
+proc printListOfStrings() { local idx localobj list
+    list = $o1
+    for (idx = 0; idx < list.count(); idx += 1) {
+        printf("    * %s\n", list.o(idx).s)
+    }
+}
+
+// Make a shallow copy of this List
+// $o1 - The List
+// Returns The copy
+obfunc makeShallowCopyOfList() { local idx localobj inList, outList
+    inList = $o1
+    outList = new List()
+    for (idx = 0; idx < inList.count(); idx += 1) {
+        outList.append(inList.o(idx))
+    }
+    return outList
+}
+
+// Inner search cycle used when we try to guess names used for soma and dendrites in the imported HOC file
+// $o1 - Names of sections created in the imported HOC file (List of String objects)
+// $o2 - The tested names (List of String objects)
+// $3 - 0/1 flag to select the predicate: 1 for stringsEqual, 0 for containsSubstring
+// Returns The index of hit or -1 if all miss
+func smallSearchCycle() { local predicateSelector, testedNameIdx, createdNameidx, isMatch localobj createdNames, testedNames
+    strdef testedName, createdName
+    
+    createdNames = $o1
+    testedNames = $o2
+    predicateSelector = $3
+    
+    for (testedNameIdx = 0; testedNameIdx < testedNames.count(); testedNameIdx += 1) {
+        testedName = testedNames.o(testedNameIdx).s
+        for (createdNameidx = 0; createdNameidx < createdNames.count(); createdNameidx += 1) {
+            createdName = createdNames.o(createdNameidx).s
+            if (predicateSelector) {
+                isMatch = stringsEqual(createdName, testedName)
+            } else {
+                isMatch = containsSubstring(createdName, testedName)
+            }
+            if (isMatch) {
+                return createdNameidx
+            }
+        }
+    }
+    
+    return -1
+}
+
+// Outer search cycle used when we try to guess names used for soma and dendrites in the imported HOC file
+// $o1 - Names of sections created in the imported HOC file (List of String objects)
+// $o2 - The tested names considered as a strong match (List of String objects)
+// $o3 - The tested name markers considered as a weak match (List of String objects)
+// $&4 (Output) 1 if need to show "Imported names" widget
+// Returns The index of hit or -1 if all miss
+func bigSearchCycle() { local nameIdx, matchIdx localobj allNames, strongNames, weakNameMarkers
+    
+    allNames = $o1
+    strongNames = $o2
+    weakNameMarkers = $o3
+    
+    matchIdx = smallSearchCycle(allNames, strongNames, 1)
+    if (matchIdx != -1) {
+        return matchIdx
+    }
+    
+    $&4 = 1 // Need to draw user's attention
+    
+    matchIdx = smallSearchCycle(allNames, weakNameMarkers, 0)
+    
+    return matchIdx
+}
+
+// Try guess names used for soma and dendrites in the imported HOC file
+// Also, check if user needs to select names from the lists manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
+// $o1 - Names of all sections created in the imported HOC file (List of String objects)
+// $&2 - (Output) The best selection for soma (index in the list) or -1 if no guess
+// $&3 - (Output) The best selection for dendrite (index in the list) and never -1
+// Returns 0/1 flag indicating whether "Imported names" widget will be shown
+func chooseDefaultSelectionsForSomaAndDendriteNames() { local numNames, defaultDendriteNameIdx, defaultSomaNameIdx, needToShowImportedNamesWidget, idx localobj allNames, dendriteStrongNames, dendriteWeakNameMarkers, somaStrongNames, somaWeakNameMarkers
+    
+    allNames = makeShallowCopyOfList($o1)   // We'll replace an element below, but don't want to change the List in caller scope 
+    
+    numNames = allNames.count()
+    
+    if (numNames == 0) {
+        print "Bug in Importer: Code contract violation"
+        0/0
+    } else if (numNames == 1) {
+        // Some special case
+        $&2 = -1
+        $&3 = 0
+        return 1
+    }
+    
+    defaultDendriteNameIdx = -1
+    defaultSomaNameIdx = -1
+    needToShowImportedNamesWidget = 0
+    
+    // Look for the best match for dendrite
+    dendriteStrongNames = new List()
+    dendriteStrongNames.append(new String("dendrite"))
+    dendriteStrongNames.append(new String("Dendrite"))
+    dendriteStrongNames.append(new String("DENDRITE"))
+    dendriteStrongNames.append(new String("dendron"))
+    dendriteStrongNames.append(new String("Dendron"))
+    dendriteStrongNames.append(new String("DENDRON"))
+    dendriteStrongNames.append(new String("dendrites"))
+    dendriteStrongNames.append(new String("Dendrites"))
+    dendriteStrongNames.append(new String("DENDRITES"))
+    dendriteStrongNames.append(new String("dendrons"))
+    dendriteStrongNames.append(new String("Dendrons"))
+    dendriteStrongNames.append(new String("DENDRONS"))
+    dendriteStrongNames.append(new String("dend"))
+    dendriteStrongNames.append(new String("Dend"))
+    dendriteStrongNames.append(new String("DEND"))
+    dendriteStrongNames.append(new String("dends"))
+    dendriteStrongNames.append(new String("Dends"))
+    dendriteStrongNames.append(new String("DENDS"))
+    dendriteWeakNameMarkers = new List()
+    dendriteWeakNameMarkers.append(new String("dend"))
+    dendriteWeakNameMarkers.append(new String("Dend"))
+    dendriteWeakNameMarkers.append(new String("DEND"))
+    dendriteWeakNameMarkers.append(new String("den"))
+    dendriteWeakNameMarkers.append(new String("Den"))
+    dendriteWeakNameMarkers.append(new String("DEN"))
+    dendriteWeakNameMarkers.append(new String("d"))
+    dendriteWeakNameMarkers.append(new String("D"))
+    idx = bigSearchCycle(allNames, dendriteStrongNames, dendriteWeakNameMarkers, &needToShowImportedNamesWidget)
+    if (idx != -1) {
+        allNames.remove(idx)                // So that we won't find it next time
+        allNames.insrt(idx, new String("")) // Just to keep all next indexes same
+    }
+    defaultDendriteNameIdx = idx
+    
+    // Look for the best match for soma
+    somaStrongNames = new List()
+    somaStrongNames.append(new String("soma"))
+    somaStrongNames.append(new String("Soma"))
+    somaStrongNames.append(new String("SOMA"))
+    somaStrongNames.append(new String("somata"))
+    somaStrongNames.append(new String("Somata"))
+    somaStrongNames.append(new String("SOMATA"))
+    somaStrongNames.append(new String("somas"))
+    somaStrongNames.append(new String("Somas"))
+    somaStrongNames.append(new String("SOMAS"))
+    somaWeakNameMarkers = new List()
+    somaWeakNameMarkers.append(new String("soma"))
+    somaWeakNameMarkers.append(new String("Soma"))
+    somaWeakNameMarkers.append(new String("SOMA"))
+    somaWeakNameMarkers.append(new String("som"))
+    somaWeakNameMarkers.append(new String("Som"))
+    somaWeakNameMarkers.append(new String("SOM"))
+    somaWeakNameMarkers.append(new String("s"))
+    somaWeakNameMarkers.append(new String("S"))
+    idx = bigSearchCycle(allNames, somaStrongNames, somaWeakNameMarkers, &needToShowImportedNamesWidget)
+    defaultSomaNameIdx = idx
+    
+    if (defaultSomaNameIdx == -1 || defaultDendriteNameIdx == -1) {
+        // We will draw user's attention anyway, but at least let's prepare some default selections
+        if (numNames == 2) {
+            if (defaultSomaNameIdx != -1 && defaultDendriteNameIdx == -1) {
+                // Assume unrecognized name stands for dendrite
+                defaultDendriteNameIdx = 1 - defaultSomaNameIdx
+            } else if (defaultSomaNameIdx == -1 && defaultDendriteNameIdx != -1) {
+                // Assume unrecognized name stands for soma
+                defaultSomaNameIdx = 1 - defaultDendriteNameIdx
+            } else if (defaultSomaNameIdx == -1 && defaultDendriteNameIdx == -1) {
+                // Assume unrecognized names stand for soma and dendrite respectively
+                defaultSomaNameIdx = 0
+                defaultDendriteNameIdx = 1
+            }
+        } else if (defaultDendriteNameIdx == -1) {  // Here numNames always > 2
+            // Just assign the minimum index to dendrite, because we don't return -1 for it due to code contract
+            if (defaultSomaNameIdx == 0) {
+                defaultDendriteNameIdx = 1
+            } else {
+                defaultDendriteNameIdx = 0
+            }
+        }
+    }
+    
+    if (defaultSomaNameIdx == defaultDendriteNameIdx || defaultDendriteNameIdx == -1) {
+        print "Bug in Importer: Code contract violation"
+        0/0
+    }
+    
+    $&2 = defaultSomaNameIdx
+    $&3 = defaultDendriteNameIdx
+    return needToShowImportedNamesWidget
+}

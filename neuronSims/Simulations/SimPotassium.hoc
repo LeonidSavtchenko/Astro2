@@ -7,7 +7,7 @@ objref seClamp
 // $1 - Amplitude
 // $2 - Duration
 proc stimulPotasasium() {
-    soma {
+    soma_ref.o(0).sec {
         seClamp = new SEClamp(0.5)
         seClamp.amp1 = $1   // nA
         seClamp.dur1 = $2
@@ -147,8 +147,8 @@ proc showPotasasiumUi() {
     graphList[1].append(graphPotasasiumIn)
     graphPotasasiumIn.size(0,150,-3.49246e-010,0.0101)
     graphPotasasiumIn.view(0, 110, 150, 120, 602, 705, 400, 200)
-    graphPotasasiumIn.addvar("dendrite[1].ki( 0.05 )", 1, 1, 0.8, 0.9, 2)
-	graphPotasasiumIn.addvar("dendrite[51].ki( 0.05 )", 2, 1, 0.8, 0.9, 2)
+    graphPotasasiumIn.addvar("dendrite_ref.o(1).sec.ki( 0.05 )", 1, 1, 0.8, 0.9, 2)
+	graphPotasasiumIn.addvar("dendrite_ref.o(51).sec.ki( 0.05 )", 2, 1, 0.8, 0.9, 2)
 	graphPotasasiumIn.yaxis(0)
     graphPotasasiumIn.label(0.5, 0.09, "Time (ms)", 2, 1, 0, 1, 1)
 	graphPotasasiumIn.label(0.1, 0.9, "[K+]in (mM)", 2, 1, 0, 1, 1)

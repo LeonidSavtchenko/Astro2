@@ -33,13 +33,13 @@ proc SectionInsertCadifus() {
 // $1 - Boolean. 1 - insert. 0 - uninsert.
 proc InsertElectricMechanisms() {
     // Soma
-    soma {
+    soma_ref.o(0).sec {
         SectionInsertFRAP($1)
         SectionInsertCadifus($1)
     }
 
     // Dendrites
-    for i = 0, NumberDendrites-1 dendrite[i]  {
+    for i = 0, NumberDendrites-1 dendrite_ref.o(i).sec  {
         SectionInsertFRAP($1)
         SectionInsertCadifus($1)
     }
@@ -128,12 +128,12 @@ proc SectionInsertPotasasiumMechanisms() {
 // $1 - Boolean. 1 - insert. 0 - uninsert.
 proc InsertGlutamateMechanisms() {
     // Soma
-    soma[0] {
+    soma_ref.o(0).sec {
         SectionInsertGlutamateMechanisms($1)
     }
 
     // Dendrites
-    for i = 0, NumberDendrites-1 dendrite[i] {
+    for i = 0, NumberDendrites-1 dendrite_ref.o(i).sec {
         SectionInsertGlutamateMechanisms($1)
     }
     
@@ -156,12 +156,12 @@ proc InsertGlutamateMechanisms() {
 // $1 - Boolean. 1 - insert. 0 - uninsert.
 proc InsertPotassiumMechanisms() {
     // Soma
-    soma[0] {
+    soma_ref.o(0).sec {
        SectionInsertPotasasiumMechanisms($1)
     }
 
     // Dendrites
-    for i = 0, NumberDendrites-1 dendrite[i] {
+    for i = 0, NumberDendrites-1 dendrite_ref.o(i).sec {
        SectionInsertPotasasiumMechanisms($1)
     }
     

@@ -7,7 +7,7 @@ objref currentDendrogramm
 // $1 - Amplitude
 // $2 - Duration
 proc stimulDendro() {
-    soma {
+    soma_ref.o(0).sec {
         currentDendrogramm = new IClamp(0.5)
         currentDendrogramm.del = 0  // ms
         currentDendrogramm.dur = $2 // ms
@@ -59,8 +59,8 @@ proc showSpatialVoltageUi() {
         //for i = 0, OriginalDendrite-1 {
 		  for i = 1, OriginalDendrite-1 {
             voltagePlot = new RangeVarPlot("v")
-            soma[0] voltagePlot.begin(0) 
-            dendrite[i] voltagePlot.end(1)
+            soma_ref.o(0).sec voltagePlot.begin(0) 
+            dendrite_ref.o(i).sec voltagePlot.end(1)
 
             graphDendrogramm.addobject(voltagePlot, 1, 1, 1, 1)
         }

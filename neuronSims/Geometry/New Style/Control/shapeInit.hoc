@@ -1,10 +1,6 @@
-OriginalDendrite=55
-NumberDendrites=OriginalDendrite+2*(OriginalDendrite-1)//397 //265 133 397
-SeedNumber=OriginalDendrite-1//132 // Number of extra seeds equal to the number of the central dendrites 
 
 
-
-create dendrite[NumberDendrites]
+create dendrite[55]
 
 
 proc celldef() {

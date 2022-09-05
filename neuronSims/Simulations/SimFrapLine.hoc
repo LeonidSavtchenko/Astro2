@@ -106,8 +106,8 @@ proc showFrapLineUi() { localobj plotShapeFrapioniLine
 			graphFrapLine.label(0.0340357, 0.94, "Concentration (mM)", 2, 1, 0, 0, 1)
              graphFrapLine.label(0.45, 0.01, "Distance (um)", 2, 1, 0, 0, 1)
             frapioniPlot = new RangeVarPlot("frapioni")
-            dendrite[10] frapioniPlot.begin(0)
-            dendrite[1] frapioniPlot.end(1)
+            dendrite_ref.o(10).sec frapioniPlot.begin(0)
+            dendrite_ref.o(1).sec frapioniPlot.end(1)
 
             graphFrapLine.addobject(frapioniPlot, 1, 1, 1, 1)
         }

@@ -1,0 +1,171 @@
+
+load_file("OtherUtils.hoc")
+
+
+isSomethingImported = 0
+
+// The command used for repeated call
+strdef topLevelCallHocCommand
+
+// User choice made with UI
+strdef userChoiceForInputFilePathName
+
+// Reset the variables related to all widgets
+proc generalUserChoiceReset() {
+    userChoiceForInputFilePathName = ""
+    topLevelCallHocCommand = ""
+}
+
+// Check if the repeated call is being executed now
+// Returns 0/1 flag
+func isRepeatedCall() {
+    return isRepeatedCallForSomaInsertion || isRepeatedCallForSectionNames
+}
+
+// ========== "Soma insertion" widget ==========
+
+objref vBoxSomaInsertion
+isRepeatedCallForSomaInsertion = 0
+
+// User choice made with UI
+userChoiceForSomaSize = -1
+
+// Ask user to choose the cell type so we can insert soma of proper size
+proc showSomaInsertionWidget() {
+    strdef defaultUserChoiceHocCommand
+    defaultUserChoiceHocCommand = "userChoiceForSomaSize = 10"
+    
+    vBoxSomaInsertion = new VBox()
+    vBoxSomaInsertion.intercept(1)
+    xpanel("Soma insertion")
+    xlabel("The input geometry file does not define soma, but it is required for this simulation.")
+    xlabel("We will create soma as a cylinder of diameter and length \"d\" and connect root dendrites to its centre.")
+    xlabel("Please specify the input cell type:")
+    xradiobutton("Astrocyte (d = 10 um)", defaultUserChoiceHocCommand, 1)
+    xradiobutton("Neuron (d = 15 um)", "userChoiceForSomaSize = 15")
+    xbutton("OK", "somaInsertionWidgetOkHandler()")
+    xpanel()
+    vBoxSomaInsertion.dismiss_action("somaInsertionWidgetDismissHandler()")
+    vBoxSomaInsertion.intercept(0)
+    vBoxSomaInsertion.map("Soma insertion", 550, 350, -1, -1)
+    
+    // In case if user does not touch radiobuttons, and just clicks "OK"
+    execute(defaultUserChoiceHocCommand)
+}
+
+// Reset the variables related to the widget
+proc somaInsertionWidgetUserChoiceReset() {
+    generalUserChoiceReset()
+    isRepeatedCallForSomaInsertion = 0
+    userChoiceForSomaSize = -1
+}
+
+// Handler of "OK" button for the widget
+proc somaInsertionWidgetOkHandler() {
+    // Close the widget
+    vBoxSomaInsertion.unmap()
+    
+    // Call the top level proc once again, because we have exited all the call stack
+    // (Now user has made choices, so we won't show the same widgets again)
+    isRepeatedCallForSomaInsertion = 1
+    execute(topLevelCallHocCommand)
+    
+    // Reset the variables related to user choice
+    somaInsertionWidgetUserChoiceReset()
+}
+
+// Handler of "X" button for the widget
+proc somaInsertionWidgetDismissHandler() {
+    // Close the widget
+    vBoxSomaInsertion.unmap()
+    
+    // Reset the variables related to user choice
+    somaInsertionWidgetUserChoiceReset()
+}
+
+
+// ========== "Imported names" widget ==========
+
+objref vBoxSectionNames
+isRepeatedCallForSectionNames = 0
+
+// User choices made with UI
+strdef userChoiceForSomaNameInHOC, userChoiceForDendriteNameInHOC
+objref somaNameChoices, dendriteNameChoices
+
+// Ask user to select names of soma and dendrite sections used in the imported HOC file
+// $o1 - Names of all sections created in the imported HOC file (List of String objects)
+// $2 - Index of the default selection for soma name
+// $3 - Index of the default selection for dendrite name
+proc showImportedNamesWidget() { local idx, defaultSomaNameIdx, defaultDendriteNameIdx localobj allNames
+
+    allNames = $o1
+    defaultSomaNameIdx = $2
+    defaultDendriteNameIdx = $3
+    
+    // Prepare two lists that will be shown to user so they can select names
+    somaNameChoices = new List()
+    dendriteNameChoices = new List()
+    for (idx = 0; idx < allNames.count(); idx += 1) {
+        somaNameChoices.append(allNames.o(idx))
+        dendriteNameChoices.append(allNames.o(idx))
+    }
+    
+    somaNameChoices.prepend(new String("(no soma)"))
+    defaultSomaNameIdx += 1 // -1 gives 0 which is fine
+    
+    vBoxSectionNames = new VBox()
+    vBoxSectionNames.intercept(1)
+    xpanel("Imported names")
+    xlabel("Please help us identify which names were used in the HOC file to define soma and dendrites")
+    xlabel("so we can import the file correctly.")
+    xlabel("Select \"(no soma)\" if the file does not define soma.")
+    somaNameChoices.browser("unshown_title_1", "s")
+    somaNameChoices.select(defaultSomaNameIdx)
+    dendriteNameChoices.browser("unshown_title_2", "s")
+    dendriteNameChoices.select(defaultDendriteNameIdx)
+    xbutton("OK", "importedNamesWidgetOkHandler()")
+    xpanel()
+    vBoxSectionNames.dismiss_action("importedNamesWidgetDismissHandler()")
+    vBoxSectionNames.intercept(0)
+    vBoxSectionNames.map("Imported names", 550, 350, -1, -1)
+}
+
+// Reset the variables related to the widget
+proc importedNamesWidgetUserChoiceReset() { localobj nil
+    generalUserChoiceReset()
+    isRepeatedCallForSectionNames = 0
+    userChoiceForSomaNameInHOC = ""
+    userChoiceForDendriteNameInHOC = ""
+    somaNameChoices = nil
+    dendriteNameChoices = nil
+}
+
+// Handler of "OK" button for the widget
+proc importedNamesWidgetOkHandler() { local idx
+    // Close the widget
+    vBoxSectionNames.unmap()
+    
+    // Read the names selected by user
+    idx = somaNameChoices.selected()
+    userChoiceForSomaNameInHOC = somaNameChoices.o(idx).s
+    idx = dendriteNameChoices.selected()
+    userChoiceForDendriteNameInHOC = dendriteNameChoices.o(idx).s
+    
+    // Call the top level proc once again, because we have exited all the call stack
+    // (Now user has made choices, so we won't show the same widgets again)
+    isRepeatedCallForSectionNames = 1
+    execute(topLevelCallHocCommand)
+    
+    // Reset the variables related to user choice
+    importedNamesWidgetUserChoiceReset()
+}
+
+// Handler of "X" button for the widget
+proc importedNamesWidgetDismissHandler() {
+    // Close the widget
+    vBoxSectionNames.unmap()
+    
+    // Reset the variables related to user choice
+    importedNamesWidgetUserChoiceReset()
+}

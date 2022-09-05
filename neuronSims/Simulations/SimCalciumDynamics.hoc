@@ -30,15 +30,15 @@ proc stimulCalcium()  { local AmplitudeOfCalcium, BasicCalciumNoise, i
     for i = 1, $9+1 {
         inpdata = randomCalcium.uniform(0, 1.001)
         if (Control == 1) {
-            dendrite[$10] inputSt[i]  = new GapCaSt(inpdata)
+            dendrite_ref.o($10).sec inputSt[i]  = new GapCaSt(inpdata)
             StimTrigger[i] = new NetStim(inpdata)
-            dendrite[$10] inputSt[$9+1]  = new GapCaSt(0.4)     // 0.4 position on the dendrite
-            StimTrigger[$9+1] = new NetStim(0.4)                // 0.4 position on the dendrite
+            dendrite_ref.o($10).sec inputSt[$9+1]  = new GapCaSt(0.4)   // 0.4 position on the dendrite
+            StimTrigger[$9+1] = new NetStim(0.4)                        // 0.4 position on the dendrite
         } else {
-            dendrite[$11] inputSt[i]  = new GapCaSt(inpdata) 
+            dendrite_ref.o($11).sec inputSt[i]  = new GapCaSt(inpdata) 
             StimTrigger[i] = new NetStim(inpdata) 
-            dendrite[$11] inputSt[$9]  = new GapCaSt(0.8)       // 0.8 position on the dendrite
-            StimTrigger[$9] = new NetStim(0.8)                  // 0.8 position on the dendrite  
+            dendrite_ref.o($11).sec inputSt[$9]  = new GapCaSt(0.8)     // 0.8 position on the dendrite
+            StimTrigger[$9] = new NetStim(0.8)                          // 0.8 position on the dendrite  
 
         }
         if (Control == 1) {
@@ -127,8 +127,8 @@ proc showDendritesGraph() {
 	graphDendrites.size(910,50910,-1.86e-005,8.14e-005)
     //graphDendrites.view(0, 0, 50000, 0.0001, 602, 705, 400, 200)
 	graphDendrites.view(910, -1.86e-005, 50000, 0.0001, 594, 901, 410.4, 344.8)
-    graphDendrites.addvar("dendrite[d1].cai(0.5)",1,1,0.6, 0.9,2)
-    graphDendrites.addvar("dendrite[d2].cai(0.5)",1,1,0.6, 0.9,2)
+    graphDendrites.addvar("dendrite_ref.o(d1).sec.cai(0.5)",1,1,0.6, 0.9,2)
+    graphDendrites.addvar("dendrite_ref.o(d2).sec.cai(0.5)",1,1,0.6, 0.9,2)
 	graphDendrites.label(0.469298, 0.05, "time (ms)", 2, 1, 0, 0, 1)
     graphDendrites.label(0.0986842, 0.968387, "[Ca2+]in (mM)", 2, 1, 0, 0, 1)
 }

@@ -21,7 +21,7 @@ proc res_gap() {
 proc stretch() { local i, j, scaleNew
     scaleNew = $2
     randomStretch = new Random($1)
-    for i = 0, OriginalDendrite-2 dendrite[i] {
+    for i = 0, OriginalDendrite-2 dendrite_ref.o(i).sec {
         for j = 0, n3d()-1 {
             if ( x3d(j) > 0.01 &&  y3d(j) > 0.01) {
                 pt3dchange(j, x3d(j), y3d(j), z3d(j),  1.67/sqrt(scaleNew*sqrt(x3d(j)^2+y3d(j)^2))) //randomStretch.uniform(-1, 1)+z3d(j)
@@ -42,8 +42,8 @@ proc stretch() { local i, j, scaleNew
 // Gap junction modifying the Ca concentration
 //****************************************************************************************
 proc GapCaJunc() {
-   dendrite[$1] { gapsca[$1] = new GapCa(0.5)}
-    setpointer  gapsca[$1].gapCaP, dendrite[$2].cai(0.5) gapsca[$1].jd = 0
+   dendrite_ref.o($1).sec { gapsca[$1] = new GapCa(0.5)}
+    setpointer  gapsca[$1].gapCaP, dendrite_ref.o($2).sec.cai(0.5) gapsca[$1].jd = 0
 }
 
 // Installation of two types ofGap junction,  GapJunction with another astrocyte (in LargeGlia) and autapse  Gap junctions
@@ -51,11 +51,11 @@ proc insertGapJunc() { local i
    // for i = 0, SizeTotal-2 {    
    //       LargeGlia[i] gapsca[i] = new GapCa(0.5)
    for i = 0, NumberDendrites-2  {
-          dendrite[i] gapsca[i] = new GapCa(0.5)
+          dendrite_ref.o(i).sec gapsca[i] = new GapCa(0.5)
 		  gapsca[i].jd = 0
         }	
 	for i = 0, NumberDendrites-2  {
-	   dendrite[i] {insert CAl}
+	   dendrite_ref.o(i).sec {insert CAl}
 	   }
 	for i = 0, NumberDendrites-3  {	  
        GapCaJunc(i,i+1)
@@ -80,14 +80,14 @@ proc CaGapFlux() {
 	   // for i = 0, SizeTotal-2 {
 		//LargeGlia[i] {
 		for i = 0, NumberDendrites-2  {
-	     dendrite[i] {
+	     dendrite_ref.o(i).sec {
 		  gapsca[i].jd = $1
           gapsca[i].ControlGap=ControlParameter 		  
 		 }
 		  }
 	} else {
 	    for i = 0, NumberDendrites-2  {
-	     dendrite[i] {
+	     dendrite_ref.o(i).sec {
 		 gapsca[i].jd = $1
 		 gapsca[i].ControlGap=ControlParameter 
 		 }

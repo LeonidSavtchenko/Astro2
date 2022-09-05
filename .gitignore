@@ -12,3 +12,4 @@ perf.dat
 # Ignored folders:
 results/
 x86_64/
+temp_folder/

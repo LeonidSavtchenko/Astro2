@@ -16,7 +16,7 @@ object_push(pointProcessWindow)
     ms.set("amp3", 0, 0)
     mnews("SEClamp", ms)
     select(0)
-    execute("soma[0] pointProcessWindow.move(0.65)")
+    execute("soma_ref.o(0).sec pointProcessWindow.move(0.65)")
 }
 object_pop()
 pointProcessWindow = pointProcessWindow.v1
