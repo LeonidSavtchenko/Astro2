@@ -117,7 +117,7 @@ proc showImportedNamesWidget() { local idx, defaultSomaNameIdx, defaultDendriteN
     vBoxSectionNames = new VBox()
     vBoxSectionNames.intercept(1)
     xpanel("Imported names")
-    xlabel("Please help us identify which names were used in the HOC file to define soma and dendrites")
+    xlabel("Please help us identify which names were used in the HOC file to define soma and dendrites,")
     xlabel("so we can import the file correctly.")
     xlabel("Select \"(no soma)\" if the file does not define soma.")
     somaNameChoices.browser("unshown_title_1", "s")

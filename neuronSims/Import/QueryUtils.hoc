@@ -10,6 +10,7 @@ obfunc getAllSectionNames() { local isFound, idx localobj secNames, strFunc
     forall {
         idx = strFunc.head(secname(), "\\[", secName)
         if (idx == -1) {
+            // This section is an object rather than array
             secName = secname()
         }
         
@@ -31,7 +32,7 @@ obfunc getAllSectionNames() { local isFound, idx localobj secNames, strFunc
 }
 
 // Get the number of dendrites in the imported geometry (OriginalDendrite)
-// $s1 - The dendrite section name
+// $s1 - The dendrite section name (either array or object)
 // Returns OriginalDendrite
 func getNumberOfDendrites() { local numDend
     strdef dendriteSectionName, findSecRegex
@@ -41,7 +42,9 @@ func getNumberOfDendrites() { local numDend
     sprint(findSecRegex, "%s[.*]", dendriteSectionName)
     
     numDend = 0
-    forsec findSecRegex {
+    // forsec findSecRegex {                // - These two don't require that match must start at the beginning of the string
+    // forall ifsec findSecRegex {          // /
+    forall if (issection(findSecRegex)) {   // - This does
         numDend += 1
     }
     
