@@ -1,9 +1,9 @@
 
-// Check if this HOC file was designed to be input of Astro 1.0, and so follows the old style
+// Check if this HOC file was designed to be input of Astro 1.0 and so follows the old style
 // (i.e. defines OriginalDendrite, NumberDendrites, SeedNumber and reserves extra space in dendrite array)
 // $s1 - Input file path and name
 // Returns 0/1 flag
-func checkIfThisHocFileIsOfOldStyle() { local isOfOldStyle, len localobj inFile
+func checkIfThisHocFileIsOfAstroOldStyle() { local isOfOldStyle, len localobj inFile
     strdef inFilePathName, inLine
     
     inFilePathName = $s1
@@ -99,15 +99,23 @@ func checkIfSomaIsMissingInThisGeometryFile() { local isNoCleanUpMode, isError, 
 }
 
 // Check if the imported HOC file declares any top level names which will collide with those ones reserved by the importer
+// Input: isImportForAstro (taken from top level)
+// $1 - 0/1 flag indicating that HOC file was designed to be input of Astro 1.0, and so follows the old style (used only if isImportForAstro)
 // Returns 0/1 flag indicating ok/error
-func checkTopLevelNamesCollision() { local idx localobj reservedNames, collidedNames, strFunc
+func checkTopLevelNamesCollision() { local isOldStyleAstroHocFile, idx localobj reservedNames, collidedNames, strFunc
+    isOldStyleAstroHocFile = $1
+    
     reservedNames = new List()
     collidedNames = new List()
     strFunc = new StringFunctions()
     
     reservedNames.append(new String("soma_ref"))
-    reservedNames.append(new String("dendrite_ref"))
-    reservedNames.append(new String("_extraDendrite"))
+    if (isImportForAstro) {
+        reservedNames.append(new String("dendrite_ref"))
+        if (!isOldStyleAstroHocFile) {
+            reservedNames.append(new String("_extraDendrite"))
+        }
+    }
     reservedNames.append(new String("_secRef"))
     
     for (idx = 0; idx < reservedNames.count(); idx += 1) {

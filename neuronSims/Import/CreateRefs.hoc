@@ -1,49 +1,39 @@
 
-// These ones will be used in Astro to access the imported sections and extra space for dendrites (List of SectionRef)
-objref soma_ref, dendrite_ref
+// This one will be used in Astro to access the imported sections for soma (List of SectionRef)
+objref soma_ref
 
-// This one will not be used anywhere outside this file
+// This one will not be used anywhere outside this file and CreateRefsForAstro.hoc
 objref _secRef
 
 
-// Create references to soma and dendrite sections imported from HOC file
-// Also, allocate extra space for dendrites
+// Create references to soma sections imported from HOC file
 // $s1 - Imported soma name
-// $s2 - Imported dendrite name
-// $3 - 0/1 flag indicating that we imported an old-style HOC file (designed to be input of Astro 1.0)
-// Other input: NumberDendrites and OriginalDendrite (taken from top level)
-// Output: soma_ref and dendrite_ref (initialized on top level)
-proc createSomaAndDendriteReferences() { local isOldStyleHocFile, idx localobj nil
-    strdef importedSomaName, importedDendriteName, command
+// Output: soma_ref (initialized on top level)
+proc createSomaReferences() {
+    strdef importedSomaName, command
     importedSomaName = $s1
-    importedDendriteName = $s2
-    isOldStyleHocFile = $3
     
     soma_ref = new List()
-    dendrite_ref = new List()
-    
-    // Initialize soma_ref
     forsec importedSomaName {
         sprint(command, "%s _secRef = new SectionRef()", secname())
         execute(command)
         soma_ref.append(_secRef)
     }
+}
 
-    // Initialize dendrite_ref
-    forsec importedDendriteName {
-        sprint(command, "%s _secRef = new SectionRef()", secname())
-        execute(command)
-        dendrite_ref.append(_secRef)
-    }
-    if (!isOldStyleHocFile) {
-        for (idx = 0; idx < NumberDendrites - OriginalDendrite; idx += 1) {
-            // We use "execute" here just to avoid "_extraDendrite not an array variable" error at code sourcing time for old-style HOC files
-            // ("CreateExtraDendrites.hoc" is loaded only at code executing time when !isOldStyleHocFile)
-            sprint(command, "_extraDendrite[%d] _secRef = new SectionRef()", idx)
-            execute(command)
-            dendrite_ref.append(_secRef)
-        }
-    }
+if (isImportForAstro) {
+    load_file("CreateRefsForAstro.hoc")
+}
+
+// Create references to soma sections imported from HOC file
+// $s1 - Imported soma name
+// Output: soma_ref (initialized on top level)
+proc createSomaReferencesNotForAstro() { localobj nil
+    strdef importedSomaName
+    importedSomaName = $s1
+    
+    // Initialize soma_ref
+    createSomaReferences(importedSomaName)
     
     // Some cleanup on top level
     _secRef = nil

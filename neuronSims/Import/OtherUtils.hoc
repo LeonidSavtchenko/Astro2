@@ -116,13 +116,42 @@ func bigSearchCycle() { local nameIdx, matchIdx localobj allNames, strongNames, 
     return matchIdx
 }
 
+// Get soma strong names and weak name markers
+// $o1 - (Output) Soma strong names (List of String objects)
+// $o2 - (Output) Soma weak name markers (List of String objects)
+proc getSomaStrongNamesAndWeakNameMarkers() { localobj somaStrongNames, somaWeakNameMarkers
+    somaStrongNames = new List()
+    somaStrongNames.append(new String("soma"))
+    somaStrongNames.append(new String("Soma"))
+    somaStrongNames.append(new String("SOMA"))
+    somaStrongNames.append(new String("somata"))
+    somaStrongNames.append(new String("Somata"))
+    somaStrongNames.append(new String("SOMATA"))
+    somaStrongNames.append(new String("somas"))
+    somaStrongNames.append(new String("Somas"))
+    somaStrongNames.append(new String("SOMAS"))
+    
+    somaWeakNameMarkers = new List()
+    somaWeakNameMarkers.append(new String("soma"))
+    somaWeakNameMarkers.append(new String("Soma"))
+    somaWeakNameMarkers.append(new String("SOMA"))
+    somaWeakNameMarkers.append(new String("som"))
+    somaWeakNameMarkers.append(new String("Som"))
+    somaWeakNameMarkers.append(new String("SOM"))
+    somaWeakNameMarkers.append(new String("s"))
+    somaWeakNameMarkers.append(new String("S"))
+    
+    $o1 = somaStrongNames
+    $o2 = somaWeakNameMarkers
+}
+
 // Try guess names used for soma and dendrites in the imported HOC file
 // Also, check if user needs to select names from the lists manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
 // $o1 - Names of all sections created in the imported HOC file (List of String objects)
 // $&2 - (Output) The best selection for soma (index in the list) or -1 if no guess
 // $&3 - (Output) The best selection for dendrite (index in the list) and never -1
 // Returns 0/1 flag indicating whether "Imported names" widget will be shown
-func chooseDefaultSelectionsForSomaAndDendriteNames() { local numNames, defaultDendriteNameIdx, defaultSomaNameIdx, needToShowImportedNamesWidget, idx localobj allNames, dendriteStrongNames, dendriteWeakNameMarkers, somaStrongNames, somaWeakNameMarkers
+func chooseDefaultSelectionsForSomaAndDendriteNamesForAstro() { local numNames, defaultDendriteNameIdx, defaultSomaNameIdx, needToShowImportedNamesWidget, idx localobj allNames, dendriteStrongNames, dendriteWeakNameMarkers, somaStrongNames, somaWeakNameMarkers
     
     allNames = makeShallowCopyOfList($o1)   // We'll replace an element below, but don't want to change the List in caller scope 
     
@@ -179,25 +208,7 @@ func chooseDefaultSelectionsForSomaAndDendriteNames() { local numNames, defaultD
     defaultDendriteNameIdx = idx
     
     // Look for the best match for soma
-    somaStrongNames = new List()
-    somaStrongNames.append(new String("soma"))
-    somaStrongNames.append(new String("Soma"))
-    somaStrongNames.append(new String("SOMA"))
-    somaStrongNames.append(new String("somata"))
-    somaStrongNames.append(new String("Somata"))
-    somaStrongNames.append(new String("SOMATA"))
-    somaStrongNames.append(new String("somas"))
-    somaStrongNames.append(new String("Somas"))
-    somaStrongNames.append(new String("SOMAS"))
-    somaWeakNameMarkers = new List()
-    somaWeakNameMarkers.append(new String("soma"))
-    somaWeakNameMarkers.append(new String("Soma"))
-    somaWeakNameMarkers.append(new String("SOMA"))
-    somaWeakNameMarkers.append(new String("som"))
-    somaWeakNameMarkers.append(new String("Som"))
-    somaWeakNameMarkers.append(new String("SOM"))
-    somaWeakNameMarkers.append(new String("s"))
-    somaWeakNameMarkers.append(new String("S"))
+    getSomaStrongNamesAndWeakNameMarkers(somaStrongNames, somaWeakNameMarkers)
     idx = bigSearchCycle(allNames, somaStrongNames, somaWeakNameMarkers, &needToShowImportedNamesWidget)
     defaultSomaNameIdx = idx
     
@@ -233,4 +244,27 @@ func chooseDefaultSelectionsForSomaAndDendriteNames() { local numNames, defaultD
     $&2 = defaultSomaNameIdx
     $&3 = defaultDendriteNameIdx
     return needToShowImportedNamesWidget
+}
+
+// Try guess name used for soma in the imported HOC file
+// Also, check if user needs to select name from the list manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
+// $o1 - Names of all sections created in the imported HOC file (List of String objects)
+// $&2 - (Output) The best selection for soma (index in the list) or -1 if no guess
+// Returns 0/1 flag indicating whether "Imported name" widget will be shown
+func chooseDefaultSelectionForSomaNameNotForAstro() { local needToShowImportedNameWidget, defaultSomaNameIdx localobj allNames, somaStrongNames, somaWeakNameMarkers
+    
+    allNames = $o1
+    
+    if (allNames.count() == 0) {
+        print "Bug in Importer: Code contract violation"
+        0/0
+    }
+    
+    // Look for the best match for soma
+    getSomaStrongNamesAndWeakNameMarkers(somaStrongNames, somaWeakNameMarkers)
+    needToShowImportedNameWidget = 0
+    defaultSomaNameIdx = bigSearchCycle(allNames, somaStrongNames, somaWeakNameMarkers, &needToShowImportedNameWidget)
+    
+    $&2 = defaultSomaNameIdx
+    return needToShowImportedNameWidget
 }

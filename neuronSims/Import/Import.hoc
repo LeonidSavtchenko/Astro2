@@ -4,13 +4,136 @@ load_file("CheckUtils.hoc")
 load_file("QueryUtils.hoc")
 load_file("OtherUtils.hoc")
 load_file("Widgets.hoc")
+load_file("TopLevelVars.hoc")
 
 
-// Import HOC file
+// Import HOC file for Astro
 // $s1 - Input HOC file path and name
 // $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
 // Returns 0/1 flag indicating success/error or -1 if waiting for user input
-func importHocFile() { local isCalledAfterConversion, status, isOldStyleHocFile, isNoCleanUpMode, needToShowImportedNamesWidget, defaultSomaNameIdx, defaultDendriteNameIdx localobj allNames
+func importHocFileForAstro() { local isCalledAfterConversion, status, isOldStyleAstroHocFile, isNoCleanUpMode, needToShowImportedNamesWidget, defaultSomaNameIdx, defaultDendriteNameIdx localobj allNames
+    strdef inFilePathName
+    
+    inFilePathName = $s1
+    isCalledAfterConversion = $2
+    
+    if (!isRepeatedCallForSectionNames) {
+        
+        isNoCleanUpMode = isCalledAfterConversion
+        if (!isNoCleanUpMode) {
+            // Just for sanity
+            isError = createOrCleanUpTempFolder("Import/temp_folder")
+            if (isError) {
+                return 1
+            }
+        }
+        
+        // Load HOC file
+        status = load_file(inFilePathName)
+        isSomethingImported = 1
+        if (status == 0) {
+            print "Import Failed: The imported HOC file has some internal error or it tries to declare a name reserved by the importer"
+            return 1
+        }
+        
+        if (!isCalledAfterConversion) {
+            isOldStyleAstroHocFile = checkIfThisHocFileIsOfAstroOldStyle(filePathName)
+        } else {
+            isOldStyleAstroHocFile = 0
+        }
+        
+        // Check if the imported HOC file declares any top level names which will collide with those ones reserved by the importer
+        isError = checkTopLevelNamesCollision(isOldStyleAstroHocFile)
+        if (isError) {
+            return 1
+        }
+        
+        if (!isOldStyleAstroHocFile) {
+            // Loop by all sections created by the imported HOC file and prepare a list unique names
+            allNames = getAllSectionNames()
+            
+            if (allNames.count() == 0) {
+                print "Import Failed: The imported HOC file did not create any section"
+                return 1
+            }
+            
+            if (!isCalledAfterConversion) {
+                // Try guess names used for soma and dendrites in the imported HOC file
+                // Also, check if user needs to select names from the lists manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
+                needToShowImportedNamesWidget = chooseDefaultSelectionsForSomaAndDendriteNamesForAstro(allNames, &defaultSomaNameIdx, &defaultDendriteNameIdx)
+                
+                if (needToShowImportedNamesWidget) {
+                    // Ask user to select names from the lists so we can import proper sections for soma and dendrites
+                    showImportedNamesWidgetForAstro(allNames, defaultSomaNameIdx, defaultDendriteNameIdx)
+                    
+                    // Unfortunately, we have to exit all the call stack now even though user is still making a choice
+                    // The "OK" button handler will repeat the top level call again
+                    return -1
+                } else {
+                    userChoiceForSomaNameInHOC = allNames.o(defaultSomaNameIdx).s
+                    userChoiceForDendriteNameInHOC = allNames.o(defaultDendriteNameIdx).s
+                }
+            } else {
+                // Standard names declared by NLMorphologyConverter in the output HOC file
+                userChoiceForSomaNameInHOC = "soma"
+                userChoiceForDendriteNameInHOC = "dendrite"
+            }
+        } else {
+            // Standard names used in old-style HOC files (designed for Astro 1.0)
+            userChoiceForSomaNameInHOC = "soma"
+            userChoiceForDendriteNameInHOC = "dendrite"
+        }
+    } else {
+        isOldStyleAstroHocFile = 0
+    }
+    
+    if (stringsEqual(userChoiceForSomaNameInHOC, userChoiceForDendriteNameInHOC)) {
+        print "Import Failed: Cannot use the same sections as soma and dendrite"
+        return 1
+    }
+    
+    if (stringsEqual(userChoiceForSomaNameInHOC, "(no soma)")) {
+        print "Import Failed: Not implemented"
+        return 1
+    }
+    
+    if (!isOldStyleAstroHocFile) {
+        // Initialize three top level scalars
+        OriginalDendrite = getNumberOfDendrites(userChoiceForDendriteNameInHOC)
+        if (OriginalDendrite == 1) {
+            // Just to avoid error with unclear message while trying to create empty _extraDendrite array
+            print "Import Failed: The case of only one dendrite is not supported"
+            return 1
+        }
+        NumberDendrites = OriginalDendrite + 2 * (OriginalDendrite - 1)
+        SeedNumber = OriginalDendrite - 1
+    }
+    
+    // Showing geometry after soma insertion and maximum error checks, just before adding some placeholder sections
+    // (This proc is defined in Astro)
+    showSelectedGeometry()
+    
+    if (!isOldStyleAstroHocFile) {
+        // Allocate extra space for dendrites
+        // (This array won't be accessed directly anywhere outside the importer)
+        execute("create _extraDendrite[NumberDendrites - OriginalDendrite]")
+    }
+    
+    // We don't load it on the top level just to be able to call checkTopLevelNamesCollision above
+    load_file("Import/CreateRefs.hoc")
+    
+    // Create references to soma and dendrite sections
+    // (soma_ref and dendrite_ref are initialized on the top level)
+    createSomaAndDendriteReferencesForAstro(userChoiceForSomaNameInHOC, userChoiceForDendriteNameInHOC, isOldStyleAstroHocFile)
+    
+    return 0
+}
+
+// Import HOC file not for Astro
+// $s1 - Input HOC file path and name
+// $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
+// Returns 0/1 flag indicating success/error or -1 if waiting for user input
+func importHocFileNotForAstro() { local isCalledAfterConversion, status, isNoCleanUpMode, needToShowImportedNameWidget, defaultSomaNameIdx localobj allNames
     strdef inFilePathName
     
     inFilePathName = $s1
@@ -36,59 +159,38 @@ func importHocFile() { local isCalledAfterConversion, status, isOldStyleHocFile,
         }
         
         // Check if the imported HOC file declares any top level names which will collide with those ones reserved by the importer
-        isError = checkTopLevelNamesCollision()
+        isError = checkTopLevelNamesCollision(-1)
         if (isError) {
             return 1
         }
         
-        if (!isCalledAfterConversion) {
-            isOldStyleHocFile = checkIfThisHocFileIsOfOldStyle(filePathName)
-        } else {
-            isOldStyleHocFile = 0
+        // Loop by all sections created by the imported HOC file and prepare a list unique names
+        allNames = getAllSectionNames()
+        
+        if (allNames.count() == 0) {
+            print "Import Failed: The imported HOC file did not create any section"
+            return 1
         }
         
-        if (!isOldStyleHocFile) {
-            // Loop by all sections created by the imported HOC file and prepare a list unique names
-            allNames = getAllSectionNames()
+        if (!isCalledAfterConversion) {
+            // Try guess name used for soma in the imported HOC file
+            // Also, check if user needs to select name from the list manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
+            needToShowImportedNameWidget = chooseDefaultSelectionForSomaNameNotForAstro(allNames, &defaultSomaNameIdx)
             
-            if (allNames.count() == 0) {
-                print "Import Failed: The imported HOC file did not create any section"
-                return 1
-            }
-            
-            if (!isCalledAfterConversion) {
-                // Try guess names used for soma and dendrites in the imported HOC file
-                // Also, check if user needs to select names from the lists manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
-                needToShowImportedNamesWidget = chooseDefaultSelectionsForSomaAndDendriteNames(allNames, &defaultSomaNameIdx, &defaultDendriteNameIdx)
+            if (needToShowImportedNameWidget) {
+                // Ask user to select name from the list so we can import proper sections for soma
+                showImportedNameWidgetNotForAstro(allNames, defaultSomaNameIdx)
                 
-                if (needToShowImportedNamesWidget) {
-                    // Ask user to select names from the lists so we can import proper sections for soma and dendrites
-                    showImportedNamesWidget(allNames, defaultSomaNameIdx, defaultDendriteNameIdx)
-                    
-                    // Unfortunately, we have to exit all the call stack now even though user is still making a choice
-                    // The "OK" button handler will repeat the top level call again
-                    return -1
-                } else {
-                    userChoiceForSomaNameInHOC = allNames.o(defaultSomaNameIdx).s
-                    userChoiceForDendriteNameInHOC = allNames.o(defaultDendriteNameIdx).s
-                }
+                // Unfortunately, we have to exit all the call stack now even though user is still making a choice
+                // The "OK" button handler will repeat the top level call again
+                return -1
             } else {
-                // Standard names declared by NLMorphologyConverter in the output HOC file
-                userChoiceForSomaNameInHOC = "soma"
-                userChoiceForDendriteNameInHOC = "dendrite"
+                userChoiceForSomaNameInHOC = allNames.o(defaultSomaNameIdx).s
             }
         } else {
-            // Standard names used in old-style HOC files (designed for Astro 1.0)
+            // Standard name declared by NLMorphologyConverter in the output HOC file
             userChoiceForSomaNameInHOC = "soma"
-            userChoiceForDendriteNameInHOC = "dendrite"
         }
-    } else {
-        isOldStyleHocFile = 0
-    }
-    
-    if (stringsEqual(userChoiceForSomaNameInHOC, userChoiceForDendriteNameInHOC)) {
-        print "Import Failed: Cannot use the same sections as soma and dendrite"
-        return 1
     }
     
     if (stringsEqual(userChoiceForSomaNameInHOC, "(no soma)")) {
@@ -96,35 +198,31 @@ func importHocFile() { local isCalledAfterConversion, status, isOldStyleHocFile,
         return 1
     }
     
-    if (!isOldStyleHocFile) {
-        // Initialize three top level scalars
-        OriginalDendrite = getNumberOfDendrites(userChoiceForDendriteNameInHOC)
-        if (OriginalDendrite == 1) {
-            // Just to avoid error with unclear message while trying to create empty _extraDendrite array
-            print "Import Failed: The case of only one dendrite is not supported"
-            return 1
-        }
-        NumberDendrites = OriginalDendrite + 2 * (OriginalDendrite - 1)
-        SeedNumber = OriginalDendrite - 1
-    }
-    
-    // Showing geometry after soma insertion and maximum error checks, just before adding some placeholder sections
-    showSelectedGeometry()
-    
-    if (!isOldStyleHocFile) {
-        // Allocate extra space for dendrites
-        // (This array won't be accessed directly anywhere outside the importer)
-        execute("create _extraDendrite[NumberDendrites - OriginalDendrite]")
-    }
-    
     // We don't load it on the top level just to be able to call checkTopLevelNamesCollision above
     load_file("Import/CreateRefs.hoc")
     
-    // Create references to soma and dendrite sections
-    // (soma_ref and dendrite_ref are initialized on the top level)
-    createSomaAndDendriteReferences(userChoiceForSomaNameInHOC, userChoiceForDendriteNameInHOC, isOldStyleHocFile)
+    // Create references to soma sections
+    // (soma_ref is initialized on the top level)
+    createSomaReferencesNotForAstro(userChoiceForSomaNameInHOC)
     
     return 0
+}
+
+// Import HOC file
+// $s1 - Input HOC file path and name
+// $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
+// Returns 0/1 flag indicating success/error or -1 if waiting for user input
+func importHocFile() { local isCalledAfterConversion
+    strdef inFilePathName
+    
+    inFilePathName = $s1
+    isCalledAfterConversion = $2
+    
+    if (isImportForAstro) {
+        return importHocFileForAstro(inFilePathName, isCalledAfterConversion)
+    } else {
+        return importHocFileNotForAstro(inFilePathName, isCalledAfterConversion)
+    }
 }
 
 // Import SWC or any other file supported by NLMorphologyConverter
@@ -238,31 +336,45 @@ func importSwcFileFromZipArchive() { local isError, status, sysComRes
     return status
 }
 
-// Import a file into Astro
-// $s1 - HOC command to repeat the top level call once again
+// Import a file
+// $1 - 0/1 flag indicating whether import must be done in "Astro" style
+// $s2 - HOC command to repeat the top level call once again
+// $s3 - (Optional) Path to the input file; if omitted, then file browser will be shown
 // Returns 0/1 flag indicating success/error or -1 if waiting for user input
-func importHocOrSwcOrZipOrOtherFile() { local isError, status, whetherHocFileNeedsCorrection localobj file
+func importHocOrSwcOrZipOrOtherFile() { local numArg, isError, status, whetherHocFileNeedsCorrection localobj file
     strdef filePathName, fileExt
     
-    topLevelCallHocCommand = $s1
+    numArg = numarg()
+    if (numArg < 2 || numArg > 3) {
+        print "Import Failed: 2 or 3 input arguments expected"
+        return 1
+    }
+    
+    isImportForAstro = $1
+    topLevelCallHocCommand = $s2
+    if (numArg == 3) {
+        filePathName = $s3
+    }
     
     if (!isRepeatedCall()) {
         if (isSomethingImported) {
             print "Import Failed:"
             print "Cannot import two files in a row due to risk of top level names collision."
-            print "Please restart NEURON to clean up the workspace and then try again."
+            print "Please restart NEURON to clean up the namespace and then try again."
             return 1
         }
         
-        file = new File()
-        file.chooser("r", "Load", "*.*", "Load", "Cancel", getcwd())
-        isError = (file.chooser() == 0)
-        if (isError) {
-            print "File wasn't selected"
-            return 1
+        if (numArg == 2) {
+            file = new File()
+            file.chooser("r", "Load", "*.*", "Load", "Cancel", getcwd())
+            isError = (file.chooser() == 0)
+            if (isError) {
+                print "File wasn't selected"
+                return 1
+            }
+            
+            filePathName = file.getname
         }
-        
-        filePathName = file.getname
         
         userChoiceForInputFilePathName = filePathName
     } else {
@@ -285,9 +397,5 @@ func importHocOrSwcOrZipOrOtherFile() { local isError, status, whetherHocFileNee
         }
     }
     
-    if (status != 0) {
-        return status
-    }
-    
-    return 0
+    return status
 }

@@ -2,8 +2,6 @@
 load_file("OtherUtils.hoc")
 
 
-isSomethingImported = 0
-
 // The command used for repeated call
 strdef topLevelCallHocCommand
 
@@ -84,7 +82,7 @@ proc somaInsertionWidgetDismissHandler() {
 }
 
 
-// ========== "Imported names" widget ==========
+// ========== "Imported name(s)" widget ==========
 
 objref vBoxSectionNames
 isRepeatedCallForSectionNames = 0
@@ -95,21 +93,17 @@ objref somaNameChoices, dendriteNameChoices
 
 // Ask user to select names of soma and dendrite sections used in the imported HOC file
 // $o1 - Names of all sections created in the imported HOC file (List of String objects)
-// $2 - Index of the default selection for soma name
+// $2 - Index of the default selection for soma name or -1 to select "(no soma)" by default
 // $3 - Index of the default selection for dendrite name
-proc showImportedNamesWidget() { local idx, defaultSomaNameIdx, defaultDendriteNameIdx localobj allNames
+proc showImportedNamesWidgetForAstro() { local defaultSomaNameIdx, defaultDendriteNameIdx localobj allNames
 
     allNames = $o1
     defaultSomaNameIdx = $2
     defaultDendriteNameIdx = $3
     
     // Prepare two lists that will be shown to user so they can select names
-    somaNameChoices = new List()
-    dendriteNameChoices = new List()
-    for (idx = 0; idx < allNames.count(); idx += 1) {
-        somaNameChoices.append(allNames.o(idx))
-        dendriteNameChoices.append(allNames.o(idx))
-    }
+    somaNameChoices = makeShallowCopyOfList(allNames)
+    dendriteNameChoices = makeShallowCopyOfList(allNames)
     
     somaNameChoices.prepend(new String("(no soma)"))
     defaultSomaNameIdx += 1 // -1 gives 0 which is fine
@@ -117,7 +111,7 @@ proc showImportedNamesWidget() { local idx, defaultSomaNameIdx, defaultDendriteN
     vBoxSectionNames = new VBox()
     vBoxSectionNames.intercept(1)
     xpanel("Imported names")
-    xlabel("Please help us identify which names were used in the HOC file to define soma and dendrites,")
+    xlabel("Please help us identify which names were used in the HOC file to define soma and dendrites")
     xlabel("so we can import the file correctly.")
     xlabel("Select \"(no soma)\" if the file does not define soma.")
     somaNameChoices.browser("unshown_title_1", "s")
@@ -129,6 +123,35 @@ proc showImportedNamesWidget() { local idx, defaultSomaNameIdx, defaultDendriteN
     vBoxSectionNames.dismiss_action("importedNamesWidgetDismissHandler()")
     vBoxSectionNames.intercept(0)
     vBoxSectionNames.map("Imported names", 550, 350, -1, -1)
+}
+
+// Ask user to select name of soma sections used in the imported HOC file
+// $o1 - Names of all sections created in the imported HOC file (List of String objects)
+// $2 - Index of the default selection for soma name or -1 to select "(no soma)" by default
+proc showImportedNameWidgetNotForAstro() { local defaultSomaNameIdx localobj allNames
+
+    allNames = $o1
+    defaultSomaNameIdx = $2
+    
+    // Prepare the list that will be shown to user so they can select names
+    somaNameChoices = makeShallowCopyOfList(allNames)
+    
+    somaNameChoices.prepend(new String("(no soma)"))
+    defaultSomaNameIdx += 1 // -1 gives 0 which is fine
+    
+    vBoxSectionNames = new VBox()
+    vBoxSectionNames.intercept(1)
+    xpanel("Imported name")
+    xlabel("Please help us identify which name was used in the HOC file to define soma")
+    xlabel("so we can import the file correctly.")
+    xlabel("Select \"(no soma)\" if the file does not define soma.")
+    somaNameChoices.browser("unshown_title", "s")
+    somaNameChoices.select(defaultSomaNameIdx)
+    xbutton("OK", "importedNamesWidgetOkHandler()")
+    xpanel()
+    vBoxSectionNames.dismiss_action("importedNamesWidgetDismissHandler()")
+    vBoxSectionNames.intercept(0)
+    vBoxSectionNames.map("Imported name", 550, 350, -1, -1)
 }
 
 // Reset the variables related to the widget
@@ -149,8 +172,10 @@ proc importedNamesWidgetOkHandler() { local idx
     // Read the names selected by user
     idx = somaNameChoices.selected()
     userChoiceForSomaNameInHOC = somaNameChoices.o(idx).s
-    idx = dendriteNameChoices.selected()
-    userChoiceForDendriteNameInHOC = dendriteNameChoices.o(idx).s
+    if (isImportForAstro) {
+        idx = dendriteNameChoices.selected()
+        userChoiceForDendriteNameInHOC = dendriteNameChoices.o(idx).s
+    }
     
     // Call the top level proc once again, because we have exited all the call stack
     // (Now user has made choices, so we won't show the same widgets again)

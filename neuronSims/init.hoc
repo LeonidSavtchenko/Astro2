@@ -56,12 +56,12 @@ proc showSelectedGeometry() {
 
 // Loads geometry file.
 proc loadGeometryFile() {
-    importHocOrSwcOrZipOrOtherFile("loadGeometryFile()")
+    importHocOrSwcOrZipOrOtherFile(1, "loadGeometryFile()")
 }
 //************************************************************************
 // Geometry of EndFoot
 proc loadGeometryEndFootFile() { local status
-    status = importHocOrSwcOrZipOrOtherFile("loadGeometryEndFootFile()")
+    status = importHocOrSwcOrZipOrOtherFile(1, "loadGeometryEndFootFile()")
     if (status != 0) {
         return
     }
@@ -89,7 +89,7 @@ ScaleGeometryParameters=1 // 1 is artificial astrocyte geometry
 // Loads geometry file of reconstructed Astrocyte.
 // The parameter allows to fir the data file to the real geometry
 proc loadGeometryFileReconstract() { local status
-    status = importHocOrSwcOrZipOrOtherFile("loadGeometryFileReconstract()")
+    status = importHocOrSwcOrZipOrOtherFile(1, "loadGeometryFileReconstract()")
     if (status != 0) {
         return
     }
