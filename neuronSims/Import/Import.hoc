@@ -93,7 +93,7 @@ func importHocFileForAstro() { local isCalledAfterConversion, status, isOldStyle
     }
     
     if (stringsEqual(userChoiceForSomaNameInHOC, "(no soma)")) {
-        print "Import Failed: Not implemented"
+        print "Import Failed: Not implemented (1)"
         return 1
     }
     
@@ -133,7 +133,7 @@ func importHocFileForAstro() { local isCalledAfterConversion, status, isOldStyle
 // $s1 - Input HOC file path and name
 // $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
 // Returns 0/1 flag indicating success/error or -1 if waiting for user input
-func importHocFileNotForAstro() { local isCalledAfterConversion, status, isNoCleanUpMode, needToShowImportedNameWidget, defaultSomaNameIdx localobj allNames
+func importHocFileNotForAstro() { local isCalledAfterConversion, isOldStyleAstroHocFile, status, isNoCleanUpMode, needToShowImportedNameWidget, defaultSomaNameIdx localobj allNames
     strdef inFilePathName
     
     inFilePathName = $s1
@@ -146,6 +146,14 @@ func importHocFileNotForAstro() { local isCalledAfterConversion, status, isNoCle
             // Just for sanity
             isError = createOrCleanUpTempFolder("Import/temp_folder")
             if (isError) {
+                return 1
+            }
+        }
+        
+        if (!isCalledAfterConversion) {
+            isOldStyleAstroHocFile = checkIfThisHocFileIsOfAstroOldStyle(inFilePathName)
+            if (isOldStyleAstroHocFile) {
+                print "Import Failed: Not implemented (2)"
                 return 1
             }
         }
@@ -194,7 +202,7 @@ func importHocFileNotForAstro() { local isCalledAfterConversion, status, isNoCle
     }
     
     if (stringsEqual(userChoiceForSomaNameInHOC, "(no soma)")) {
-        print "Import Failed: Not implemented"
+        print "Import Failed: Not implemented (3)"
         return 1
     }
     
