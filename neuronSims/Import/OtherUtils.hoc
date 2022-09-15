@@ -293,6 +293,17 @@ proc showImportedGeometry() {
     }
 }
 
+// Hide imported geometry sketch
+// Input: isImportForAstro (taken from top level)
+proc hideImportedGeometry() {
+    if (isImportForAstro) {
+        // This objref is defined in Astro
+        execute("plotShapeGeometry.unmap()")
+    } else {
+        plotShapeGeometry_importer.unmap()
+    }
+}
+
 // Choose the output location and export the resulting HOC file
 proc chooseOutLocationAndExportHocFile() { localobj file
     
@@ -310,6 +321,7 @@ proc chooseOutLocationAndExportHocFile() { localobj file
 // Cleanup before the next import
 // Input: isImportForAstro (taken from top level)
 proc cleanupBeforeNextImport() {
+    hideImportedGeometry()
     deleteAllSectionRefs()
     deleteAllSections()
     if (isImportForAstro) {

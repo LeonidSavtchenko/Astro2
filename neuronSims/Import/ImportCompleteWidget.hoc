@@ -12,7 +12,7 @@ begintemplate ImportCompleteWidget
     objref vBox
     
     external isImportForAstro, importCompleteHandler
-    external chooseOutLocationAndExportHocFile, cleanupBeforeNextImport
+    external chooseOutLocationAndExportHocFile, hideImportedGeometry, cleanupBeforeNextImport
     
     // Ask user whether to proceed with this file (optionally saving it as HOC somewhere) or import other one
     // $1 - 0/1 flag indicating whether this proc is called after the file conversion stage
@@ -43,6 +43,10 @@ begintemplate ImportCompleteWidget
         
         if (userChoiceWhetherToSaveHocFile) {
             chooseOutLocationAndExportHocFile()
+        }
+        
+        if (!isImportForAstro) {
+            hideImportedGeometry()
         }
         
         execute(importCompleteHandler)
