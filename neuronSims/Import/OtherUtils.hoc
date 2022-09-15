@@ -262,24 +262,24 @@ func chooseDefaultSelectionForSomaNameNotForAstro() { local needToShowImportedNa
 // Try to load the HOC file with "load_file" and print some clues if failed
 // $s1 - Input HOC file path and name
 // Output: All new top-level declarations from the file
-proc loadHocFile() { local status
+proc loadHocFile() { local status, wasSomethingImported
     strdef inFilePathName
     
     inFilePathName = $s1
     
+    wasSomethingImported = isSomethingImported
     status = load_file(1, inFilePathName)
+    isSomethingImported = 1
     
     if (!status) {
         print "Import Failed: The loaded HOC file"
         print "    * Either has some internal error"
         print "    * Or tries to declare a name reserved by the importer"
-        if (isSomethingImported) {
+        if (wasSomethingImported) {
             print "    * Or tries to declare a name already declared by other HOC file imported earlier"
         }
         stop
     }
-    
-    isSomethingImported = 1
 }
 
 // Show imported geometry sketch
