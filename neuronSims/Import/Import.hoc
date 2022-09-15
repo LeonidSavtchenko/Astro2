@@ -17,7 +17,7 @@
 // $1 - 0/1 flag indicating whether import must be done in "Astro" style
 // $s2 - (Optional) HOC command to execute after successful import completion
 // $s3 - (Optional) Path to the input file; if omitted, then file browser will be shown
-proc importHocOrSwcOrZipOrOtherFile() { local numArg, whetherHocFileNeedsCorrection localobj file
+proc importHocOrSwcOrZipOrOtherFile() { local numArg localobj file
     strdef filePathName, fileExt
     
     if (unix_mac_pc() != 3) {
