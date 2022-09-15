@@ -1,0 +1,86 @@
+
+// This one will be used to access the imported sections for soma (List of SectionRef)
+objref soma_ref
+
+// This one will be used in Astro to access the imported sections and extra space for dendrites (List of SectionRef)
+objref dendrite_ref
+
+// This one won't be used anywhere outside this file
+objref _secRef
+
+
+// Create references to soma and dendrite sections imported from HOC file
+// Also, allocate extra space for dendrites
+// $s1 - Imported soma name
+// $s2 - Imported dendrite name
+// $3 - 0/1 flag indicating that we imported an old-style HOC file (designed to be input of Astro 1.0)
+// Other input: NumberDendrites and OriginalDendrite (taken from top level)
+// Output: soma_ref and dendrite_ref (initialized on top level)
+proc createSomaAndDendriteReferencesForAstro() { local isOldStyleAstroHocFile, idx localobj nil
+    strdef importedSomaName, importedDendriteName, hocCommand
+    
+    importedSomaName = $s1
+    importedDendriteName = $s2
+    isOldStyleAstroHocFile = $3
+    
+    // Initialize soma_ref
+    createSomaReferences(importedSomaName)
+    
+    // Initialize dendrite_ref
+    dendrite_ref = new List()
+    forsec importedDendriteName {
+        sprint(hocCommand, "%s _secRef = new SectionRef()", secname())
+        execute(hocCommand)
+        dendrite_ref.append(_secRef)
+    }
+    if (!isOldStyleAstroHocFile) {
+        for (idx = 0; idx < NumberDendrites - OriginalDendrite; idx += 1) {
+            sprint(hocCommand, "_extraDendrite[%d] _secRef = new SectionRef()", idx)
+            execute(hocCommand)     // Just to avoid catching error "_extraDendrite not an array variable" (the array will be created after sourcing this file, but before calling this proc)
+            dendrite_ref.append(_secRef)
+        }
+    }
+    
+    // Some cleanup on top level
+    _secRef = nil
+}
+
+// Create references to soma sections imported from HOC file
+// $s1 - Imported soma name
+// Output: soma_ref (initialized on top level)
+proc createSomaReferencesNotForAstro() { localobj nil
+    strdef importedSomaName
+    
+    importedSomaName = $s1
+    
+    // Initialize soma_ref
+    createSomaReferences(importedSomaName)
+    
+    // Some cleanup on top level
+    _secRef = nil
+}
+
+// Create references to soma sections imported from HOC file
+// $s1 - Imported soma name
+// Output: soma_ref (initialized on top level)
+proc createSomaReferences() {
+    strdef importedSomaName, hocCommand
+    importedSomaName = $s1
+    
+    soma_ref = new List()
+    forsec importedSomaName {
+        sprint(hocCommand, "%s _secRef = new SectionRef()", secname())
+        execute(hocCommand)
+        soma_ref.append(_secRef)
+    }
+}
+
+// Delete all section references
+// (The names remain declared and cannot be used for anything else than creating new objects)
+// Input: isImportForAstro (taken from top level)
+proc deleteAllSectionRefs() { localobj nil
+    soma_ref = nil
+    if (isImportForAstro) {
+        dendrite_ref = nil
+    }
+}

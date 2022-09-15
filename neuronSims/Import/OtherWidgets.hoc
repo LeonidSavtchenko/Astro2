@@ -1,0 +1,186 @@
+
+objref somaInsertionWidget, importedNamesWidget
+
+
+begintemplate SomaInsertionWidget
+
+    public userChoiceForSomaSize
+    public show
+    
+    // User choice made with UI
+    userChoiceForSomaSize = -1
+    
+    // The argument passed to importSwcOrOtherFile_afterChoice
+    strdef inFilePathName
+    
+    objref vBox
+    
+    external somaInsertionWidget
+    external importSwcOrOtherFile_afterChoice
+    
+    // Template initialization
+    // $s1 - Input file path and name
+    proc init() {
+        inFilePathName = $s1
+    }
+    
+    // Ask user to choose the cell type so we can insert soma of proper size
+    proc show() {
+        strdef defaultUserChoiceHocCommand
+        defaultUserChoiceHocCommand = "somaInsertionWidget.userChoiceForSomaSize = 10"
+        
+        vBox = new VBox()
+        vBox.intercept(1)
+        xpanel("Soma insertion")
+        xlabel("The input geometry file does not define soma, but it is required for this simulation.")
+        xlabel("We will create soma as a cylinder of diameter and length \"d\" and connect root dendrites to its centre.")
+        xlabel("Please specify the input cell type:")
+        xradiobutton("Astrocyte (d = 10 um)", defaultUserChoiceHocCommand, 1)
+        xradiobutton("Neuron (d = 15 um)", "somaInsertionWidget.userChoiceForSomaSize = 15")
+        xbutton("OK", "okHandler()")
+        xpanel()
+        vBox.dismiss_action("dismissHandler()")
+        vBox.intercept(0)
+        vBox.map("Soma insertion", 550, 350, -1, -1)
+        
+        // In case if user does not touch radiobuttons, and just clicks "OK"
+        execute(defaultUserChoiceHocCommand)
+    }
+    
+    // Handler of "OK" button for the widget
+    proc okHandler() {
+        // Close the widget
+        vBox.unmap()
+        
+        // Proceed with the import (now user has made the choice)
+        importSwcOrOtherFile_afterChoice(inFilePathName, userChoiceForSomaSize)
+    }
+    
+    // Handler of "X" button for the widget
+    proc dismissHandler() {
+        // Close the widget
+        vBox.unmap()
+    }
+
+endtemplate SomaInsertionWidget
+
+
+begintemplate ImportedNamesWidget
+
+    public showForAstro, showNotForAstro
+    
+    // User choices made with UI
+    strdef userChoiceForSomaNameInImportedHocFile, userChoiceForDendriteNameInImportedHocFile
+    
+    // The arguments passed to importHocFileForAstro_afterChoice or importHocFileNotForAstro_afterChoice
+    isCalledAfterConversion = -1
+    isOldStyleAstroHocFile = -1
+    
+    objref vBox
+    objref somaNameChoices, dendriteNameChoices
+    
+    external isImportForAstro
+    external makeShallowCopyOfList, importHocFileForAstro_afterChoice, importHocFileNotForAstro_afterChoice
+    
+    // Template initialization
+    // $1 - 0/1 flag indicating whether this proc is called after the file conversion stage
+    // $2 (Optional) - 0/1 flag indicating whether the HOC file was designed to be input of Astro 1.0 and so follows the old style (the argument is omitted when isImportForAstro == 0)
+    proc init() {
+        isCalledAfterConversion = $1
+        if (numarg() == 2) {
+            isOldStyleAstroHocFile = $2
+        }
+    }
+    
+    // Ask user to select names of soma and dendrite sections used in the imported HOC file
+    // $o1 - Names of all sections created in the imported HOC file (List of String objects)
+    // $2 - Index of the default selection for soma name or -1 to select "(no soma)" by default
+    // $3 - Index of the default selection for dendrite name
+    proc showForAstro() { local defaultSomaNameIdx, defaultDendriteNameIdx localobj allNames
+        
+        allNames = $o1
+        defaultSomaNameIdx = $2
+        defaultDendriteNameIdx = $3
+        
+        // Prepare two lists that will be shown to user so they can select names
+        somaNameChoices = makeShallowCopyOfList(allNames)
+        dendriteNameChoices = makeShallowCopyOfList(allNames)
+        
+        somaNameChoices.prepend(new String("(no soma)"))
+        defaultSomaNameIdx += 1 // -1 gives 0 which is fine
+        
+        vBox = new VBox()
+        vBox.intercept(1)
+        xpanel("Imported names")
+        xlabel("Please help us identify which names were used in the HOC file to define soma and dendrites")
+        xlabel("so we can import the file correctly.")
+        xlabel("Select \"(no soma)\" if the file does not define soma.")
+        somaNameChoices.browser("unshown_title_1", "s")
+        somaNameChoices.select(defaultSomaNameIdx)
+        dendriteNameChoices.browser("unshown_title_2", "s")
+        dendriteNameChoices.select(defaultDendriteNameIdx)
+        xbutton("OK", "okHandler()")
+        xpanel()
+        vBox.dismiss_action("dismissHandler()")
+        vBox.intercept(0)
+        vBox.map("Imported names", 550, 350, -1, -1)
+    }
+    
+    // Ask user to select name of soma sections used in the imported HOC file
+    // $o1 - Names of all sections created in the imported HOC file (List of String objects)
+    // $2 - Index of the default selection for soma name or -1 to select "(no soma)" by default
+    proc showNotForAstro() { local defaultSomaNameIdx localobj allNames
+        
+        allNames = $o1
+        defaultSomaNameIdx = $2
+        
+        // Prepare the list that will be shown to user so they can select names
+        somaNameChoices = makeShallowCopyOfList(allNames)
+        
+        somaNameChoices.prepend(new String("(no soma)"))
+        defaultSomaNameIdx += 1 // -1 gives 0 which is fine
+        
+        vBox = new VBox()
+        vBox.intercept(1)
+        xpanel("Imported name")
+        xlabel("Please help us identify which name was used in the HOC file to define soma")
+        xlabel("so we can import the file correctly.")
+        xlabel("Select \"(no soma)\" if the file does not define soma.")
+        somaNameChoices.browser("unshown_title", "s")
+        somaNameChoices.select(defaultSomaNameIdx)
+        xbutton("OK", "okHandler()")
+        xpanel()
+        vBox.dismiss_action("dismissHandler()")
+        vBox.intercept(0)
+        vBox.map("Imported name", 550, 350, -1, -1)
+    }
+    
+    // Handler of "OK" button for the widget
+    // Input: isImportForAstro (taken from top level)
+    proc okHandler() { local idx
+        // Close the widget
+        vBox.unmap()
+        
+        // Read the names selected by user
+        idx = somaNameChoices.selected()
+        userChoiceForSomaNameInImportedHocFile = somaNameChoices.o(idx).s
+        if (isImportForAstro) {
+            idx = dendriteNameChoices.selected()
+            userChoiceForDendriteNameInImportedHocFile = dendriteNameChoices.o(idx).s
+        }
+        
+        // Proceed with the import (now user has made the choices)
+        if (isImportForAstro) {
+            importHocFileForAstro_afterChoice(isCalledAfterConversion, isOldStyleAstroHocFile, userChoiceForSomaNameInImportedHocFile, userChoiceForDendriteNameInImportedHocFile)
+        } else {
+            importHocFileNotForAstro_afterChoice(isCalledAfterConversion, userChoiceForSomaNameInImportedHocFile)
+        }
+    }
+    
+    // Handler of "X" button for the widget
+    proc dismissHandler() {
+        // Close the widget
+        vBox.unmap()
+    }
+
+endtemplate ImportedNamesWidget

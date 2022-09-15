@@ -1,3 +1,7 @@
 
+// The arguments passed to the importer entry point
 isImportForAstro = 0
+strdef importCompleteHandler
+
+// This one is set to 1 after the first import
 isSomethingImported = 0

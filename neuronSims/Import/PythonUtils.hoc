@@ -1,0 +1,20 @@
+
+// Copy HOC file from the temporary folder to the specified location
+// $s1 - The destination file path and name
+proc copyHocFile() { local status
+    strdef dstFilePathName, srcFilePathNameTempl, srcFilePathName, pyCommandTempl, command
+    
+    dstFilePathName = $s1
+    
+    srcFilePathNameTempl = "%sImport/temp_folder/last_converted.hoc"
+    sprint(srcFilePathName, srcFilePathNameTempl, getcwd())
+    
+    pyCommandTempl = "import shutil\nshutil.copyfile('%s', '%s')"
+    sprint(command, pyCommandTempl, srcFilePathName, dstFilePathName)
+    
+    status = nrnpython(command)
+    if (!status) {
+        print "Export Failed: Cannot save HOC file to the specified location"
+        stop
+    }
+}

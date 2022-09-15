@@ -1,409 +1,234 @@
 
-load_file("StringUtils.hoc")
-load_file("CheckUtils.hoc")
-load_file("QueryUtils.hoc")
-load_file("OtherUtils.hoc")
-load_file("Widgets.hoc")
-load_file("TopLevelVars.hoc")
+{ load_file("TopLevelVars.hoc") }
+{ load_file("PythonUtils.hoc") }
+{ load_file("StringUtils.hoc") }
+{ load_file("BatchUtils.hoc") }
+{ load_file("CheckUtils.hoc") }
+{ load_file("SectionUtils.hoc") }
+{ load_file("SectionRefUtils.hoc") }
+{ load_file("PreviewUtils.hoc") }
+{ load_file("OtherUtils.hoc") }
+{ load_file("ImportCompleteWidget.hoc") }
+{ load_file("Import_afterChoice.hoc") }     // This one depends on "ImportCompleteWidget.hoc"
+{ load_file("OtherWidgets.hoc") }           // This one depends on "Import_afterChoice.hoc"
 
 
-// Import HOC file for Astro
-// $s1 - Input HOC file path and name
-// $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
-// Returns 0/1 flag indicating success/error or -1 if waiting for user input
-func importHocFileForAstro() { local isCalledAfterConversion, status, isOldStyleAstroHocFile, isNoCleanUpMode, needToShowImportedNamesWidget, defaultSomaNameIdx, defaultDendriteNameIdx localobj allNames
-    strdef inFilePathName
+// Import a file
+// $1 - 0/1 flag indicating whether import must be done in "Astro" style
+// $s2 - (Optional) HOC command to execute after successful import completion
+// $s3 - (Optional) Path to the input file; if omitted, then file browser will be shown
+proc importHocOrSwcOrZipOrOtherFile() { local numArg, whetherHocFileNeedsCorrection localobj file
+    strdef filePathName, fileExt
     
-    inFilePathName = $s1
-    isCalledAfterConversion = $2
+    if (unix_mac_pc() != 3) {
+        printImportFailedMsgAndStop("The importer works only on Windows")
+    }
     
-    if (!isRepeatedCallForSectionNames) {
-        
-        isNoCleanUpMode = isCalledAfterConversion
-        if (!isNoCleanUpMode) {
-            // Just for sanity
-            isError = createOrCleanUpTempFolder("Import/temp_folder")
-            if (isError) {
-                return 1
-            }
-        }
-        
-        // Load HOC file
-        status = load_file(inFilePathName)
-        isSomethingImported = 1
-        if (status == 0) {
-            print "Import Failed: The imported HOC file has some internal error or it tries to declare a name reserved by the importer"
-            return 1
-        }
-        
-        if (!isCalledAfterConversion) {
-            isOldStyleAstroHocFile = checkIfThisHocFileIsOfAstroOldStyle(filePathName)
-        } else {
-            isOldStyleAstroHocFile = 0
-        }
-        
-        // Check if the imported HOC file declares any top level names which will collide with those ones reserved by the importer
-        isError = checkTopLevelNamesCollision(isOldStyleAstroHocFile)
-        if (isError) {
-            return 1
-        }
-        
-        if (!isOldStyleAstroHocFile) {
-            // Loop by all sections created by the imported HOC file and prepare a list unique names
-            allNames = getAllSectionNames()
-            
-            if (allNames.count() == 0) {
-                print "Import Failed: The imported HOC file did not create any section"
-                return 1
-            }
-            
-            if (!isCalledAfterConversion) {
-                // Try guess names used for soma and dendrites in the imported HOC file
-                // Also, check if user needs to select names from the lists manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
-                needToShowImportedNamesWidget = chooseDefaultSelectionsForSomaAndDendriteNamesForAstro(allNames, &defaultSomaNameIdx, &defaultDendriteNameIdx)
-                
-                if (needToShowImportedNamesWidget) {
-                    // Ask user to select names from the lists so we can import proper sections for soma and dendrites
-                    showImportedNamesWidgetForAstro(allNames, defaultSomaNameIdx, defaultDendriteNameIdx)
-                    
-                    // Unfortunately, we have to exit all the call stack now even though user is still making a choice
-                    // The "OK" button handler will repeat the top level call again
-                    return -1
-                } else {
-                    userChoiceForSomaNameInHOC = allNames.o(defaultSomaNameIdx).s
-                    userChoiceForDendriteNameInHOC = allNames.o(defaultDendriteNameIdx).s
-                }
-            } else {
-                // Standard names declared by NLMorphologyConverter in the output HOC file
-                userChoiceForSomaNameInHOC = "soma"
-                userChoiceForDendriteNameInHOC = "dendrite"
-            }
-        } else {
-            // Standard names used in old-style HOC files (designed for Astro 1.0)
-            userChoiceForSomaNameInHOC = "soma"
-            userChoiceForDendriteNameInHOC = "dendrite"
-        }
+    if (!nrnpython("")) {
+        printImportFailedMsgAndStop("Python is not available")
+    }
+    
+    numArg = numarg()
+    if (numArg < 1 || numArg > 3) {
+        printImportFailedMsgAndStop("1, 2 or 3 input arguments expected")
+    }
+    
+    isImportForAstro = $1
+    
+    if (numArg >= 2) {
+        importCompleteHandler = $s2
     } else {
-        isOldStyleAstroHocFile = 0
+        importCompleteHandler = ""
     }
     
-    if (stringsEqual(userChoiceForSomaNameInHOC, userChoiceForDendriteNameInHOC)) {
-        print "Import Failed: Cannot use the same sections as soma and dendrite"
-        return 1
-    }
-    
-    if (stringsEqual(userChoiceForSomaNameInHOC, "(no soma)")) {
-        print "Import Failed: Not implemented (1)"
-        return 1
-    }
-    
-    if (!isOldStyleAstroHocFile) {
-        // Initialize three top level scalars
-        OriginalDendrite = getNumberOfDendrites(userChoiceForDendriteNameInHOC)
-        if (OriginalDendrite == 1) {
-            // Just to avoid error with unclear message while trying to create empty _extraDendrite array
-            print "Import Failed: The case of only one dendrite is not supported"
-            return 1
-        }
-        NumberDendrites = OriginalDendrite + 2 * (OriginalDendrite - 1)
-        SeedNumber = OriginalDendrite - 1
-    }
-    
-    // Showing geometry after soma insertion and maximum error checks, just before adding some placeholder sections
-    // (This proc is defined in Astro)
-    showSelectedGeometry()
-    
-    if (!isOldStyleAstroHocFile) {
-        // Allocate extra space for dendrites
-        // (This array won't be accessed directly anywhere outside the importer)
-        execute("create _extraDendrite[NumberDendrites - OriginalDendrite]")
-    }
-    
-    // We don't load it on the top level just to be able to call checkTopLevelNamesCollision above
-    load_file("Import/CreateRefs.hoc")
-    
-    // Create references to soma and dendrite sections
-    // (soma_ref and dendrite_ref are initialized on the top level)
-    createSomaAndDendriteReferencesForAstro(userChoiceForSomaNameInHOC, userChoiceForDendriteNameInHOC, isOldStyleAstroHocFile)
-    
-    return 0
-}
-
-// Import HOC file not for Astro
-// $s1 - Input HOC file path and name
-// $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
-// Returns 0/1 flag indicating success/error or -1 if waiting for user input
-func importHocFileNotForAstro() { local isCalledAfterConversion, isOldStyleAstroHocFile, status, isNoCleanUpMode, needToShowImportedNameWidget, defaultSomaNameIdx localobj allNames
-    strdef inFilePathName
-    
-    inFilePathName = $s1
-    isCalledAfterConversion = $2
-    
-    if (!isRepeatedCallForSectionNames) {
-        
-        isNoCleanUpMode = isCalledAfterConversion
-        if (!isNoCleanUpMode) {
-            // Just for sanity
-            isError = createOrCleanUpTempFolder("Import/temp_folder")
-            if (isError) {
-                return 1
-            }
-        }
-        
-        if (!isCalledAfterConversion) {
-            isOldStyleAstroHocFile = checkIfThisHocFileIsOfAstroOldStyle(inFilePathName)
-            if (isOldStyleAstroHocFile) {
-                print "Import Failed: Not implemented (2)"
-                return 1
-            }
-        }
-        
-        // Load HOC file
-        status = load_file(inFilePathName)
-        isSomethingImported = 1
-        if (status == 0) {
-            print "Import Failed: The imported HOC file has some internal error or it tries to declare a name reserved by the importer"
-            return 1
-        }
-        
-        // Check if the imported HOC file declares any top level names which will collide with those ones reserved by the importer
-        isError = checkTopLevelNamesCollision(-1)
-        if (isError) {
-            return 1
-        }
-        
-        // Loop by all sections created by the imported HOC file and prepare a list unique names
-        allNames = getAllSectionNames()
-        
-        if (allNames.count() == 0) {
-            print "Import Failed: The imported HOC file did not create any section"
-            return 1
-        }
-        
-        if (!isCalledAfterConversion) {
-            // Try guess name used for soma in the imported HOC file
-            // Also, check if user needs to select name from the list manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
-            needToShowImportedNameWidget = chooseDefaultSelectionForSomaNameNotForAstro(allNames, &defaultSomaNameIdx)
-            
-            if (needToShowImportedNameWidget) {
-                // Ask user to select name from the list so we can import proper sections for soma
-                showImportedNameWidgetNotForAstro(allNames, defaultSomaNameIdx)
-                
-                // Unfortunately, we have to exit all the call stack now even though user is still making a choice
-                // The "OK" button handler will repeat the top level call again
-                return -1
-            } else {
-                userChoiceForSomaNameInHOC = allNames.o(defaultSomaNameIdx).s
-            }
-        } else {
-            // Standard name declared by NLMorphologyConverter in the output HOC file
-            userChoiceForSomaNameInHOC = "soma"
-        }
-    }
-    
-    if (stringsEqual(userChoiceForSomaNameInHOC, "(no soma)")) {
-        print "Import Failed: Not implemented (3)"
-        return 1
-    }
-    
-    // We don't load it on the top level just to be able to call checkTopLevelNamesCollision above
-    load_file("Import/CreateRefs.hoc")
-    
-    // Create references to soma sections
-    // (soma_ref is initialized on the top level)
-    createSomaReferencesNotForAstro(userChoiceForSomaNameInHOC)
-    
-    return 0
-}
-
-// Import HOC file
-// $s1 - Input HOC file path and name
-// $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
-// Returns 0/1 flag indicating success/error or -1 if waiting for user input
-func importHocFile() { local isCalledAfterConversion
-    strdef inFilePathName
-    
-    inFilePathName = $s1
-    isCalledAfterConversion = $2
-    
-    if (isImportForAstro) {
-        return importHocFileForAstro(inFilePathName, isCalledAfterConversion)
+    if (numArg == 3) {
+        filePathName = $s3
     } else {
-        return importHocFileNotForAstro(inFilePathName, isCalledAfterConversion)
-    }
-}
-
-// Import SWC or any other file supported by NLMorphologyConverter
-// $s1 - Input file path and name
-// $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
-// Returns 0/1 flag indicating success/error or -1 if waiting for user input
-func importSwcOrOtherFile() { local isNoCleanUpMode, isError, isSomaMissing, sysComRes, status
-    strdef inFilePathName, appPathNameTempl, appPathName, outFilePathNameTempl, outFilePathName, extraArgTempl, extraArg, sysCommandTempl, command
-    
-    inFilePathName = $s1
-    isNoCleanUpMode = $2
-    
-    if (userChoiceForSomaSize == -1) {
-        isError = checkIfSomaIsMissingInThisGeometryFile(inFilePathName, isNoCleanUpMode, &isSomaMissing)
-        if (isError) {
-            return 1
+        file = new File()
+        file.chooser("r", "Import", "*.*", "Load", "Cancel", getcwd())
+        if (!file.chooser()) {
+            print "File wasn't selected"
+            stop
         }
         
-        if (isSomaMissing) {
-            // Ask user to choose the cell type so we can insert soma of proper size
-            showSomaInsertionWidget()
-            
-            // Unfortunately, we have to exit all the call stack now even though user is still making a choice
-            // The "OK" button handler will repeat the top level call again
-            return -1
-        }
+        filePathName = file.getname
     }
     
-    if (!isNoCleanUpMode) {
-        // Prepare the temporary folder
-        isError = createOrCleanUpTempFolder("Import/temp_folder")
-        if (isError) {
-            return 1
-        }
-    }
+    // Prepare the temporary folder
+    createOrCleanUpTempFolder("Import/temp_folder")
     
-    // Convert the selected file to HOC with NLMorphologyConverter and save to the temporary folder
-    appPathNameTempl = "%sImport/3rdParty/NLMorphologyConverter/NLMorphologyConverter.exe"
-    sprint(appPathName, appPathNameTempl, getcwd())
-    outFilePathNameTempl = "%sImport/temp_folder/last_converted.hoc"
-    sprint(outFilePathName, outFilePathNameTempl, getcwd())
-    if (userChoiceForSomaSize != -1) {
-        extraArgTempl = "--forceCylinderSoma %g %g"
-        sprint(extraArg, extraArgTempl, userChoiceForSomaSize, userChoiceForSomaSize)
+    getFileExt(filePathName, fileExt)
+    
+    if (stringsEqual(fileExt, "hoc") || stringsEqual(fileExt, "HOC")) {
+        importHocFile(filePathName, 0)
+    } else if (stringsEqual(fileExt, "zip") || stringsEqual(fileExt, "ZIP")) {
+        importSwcFileFromZipArchive(filePathName)
     } else {
-        extraArg = ""
+        importSwcOrOtherFile(filePathName)
     }
-    sysCommandTempl = "call \"%s\" \"%s\" \"%s\" NeuronHOC %s"
-    sprint(command, sysCommandTempl, appPathName, inFilePathName, outFilePathName, extraArg)
-    sysComRes = system(command)
-    if (sysComRes != 0) {
-        // Just for sanity. Actually, NLMorphologyConverter does not return error codes, but rather prints a message and creates a minimal output file
-        print "Import Failed: Cannot convert the file to HOC format with NLMorphologyConverter"
-        return 1
-    }
-    
-    status = importHocFile(outFilePathName, 1)
-    
-    return status
 }
 
 // Import SWC file from ZIP archive downloaded from NeuroMorpho.org
 // $s1 - Input ZIP file path and name
-// Returns 0/1 flag indicating success/error or -1 if waiting for user input
-func importSwcFileFromZipArchive() { local isError, status, sysComRes
-    strdef inZipFilePathName, appPathNameTempl, appPathName, outFolderPathNameTempl, outFolderPathName, sysCommandTempl, command, swcFilePathNameTempl, swcFilePathName
+proc importSwcFileFromZipArchive() {
+    strdef inZipFilePathName, outFolderPathNameTempl, outFolderPathName, swcFilePathName
     
     inZipFilePathName = $s1
     
     outFolderPathNameTempl = "%sImport/temp_folder/last_unzipped"
     sprint(outFolderPathName, outFolderPathNameTempl, getcwd())
     
-    if (!isRepeatedCallForSomaInsertion) {
-        // Prepare the temporary folders
-        isError = createOrCleanUpTempFolder("Import/temp_folder")
-        if (isError) {
-            return 1
-        }
-        isError = createOrCleanUpTempFolder("Import/temp_folder/last_unzipped")
-        if (isError) {
-            return 1
-        }
-        
-        // Unzip the selected archive with 7-Zip and save to the temporary folder
-        appPathNameTempl = "%sImport/3rdParty/7-Zip/7z.exe"
-        sprint(appPathName, appPathNameTempl, getcwd())
-        sysCommandTempl = "call \"%s\" e \"%s\" -o\"%s\" > NUL 2> NUL"
-        sprint(command, sysCommandTempl, appPathName, inZipFilePathName, outFolderPathName)
-        sysComRes = system(command)
-        if (sysComRes != 0) {
-            print "Import Failed: Cannot unzip the archive with 7-Zip"
-            return 1
-        }
-        
-        // Rename the file *.CNG.swc to input_file.swc
-        sysCommandTempl = "cd \"%s\" && ren *.CNG.swc input_file.swc 2> NUL"
-        sprint(command, sysCommandTempl, outFolderPathName)
-        sysComRes = system(command)
-        isError = (sysComRes != 0)
-        if (isError) {
-            // Maybe just more than one swc-file in the archive, so only the first one is renamed successfully
-            // print "Import Failed: Cannot rename the input SWC file"
-            isError = 0
-        }
-    }
+    // Prepare the temporary folder
+    createOrCleanUpTempFolder("Import/temp_folder/last_unzipped")
     
-    swcFilePathNameTempl = "%s/input_file.swc"
-    sprint(swcFilePathName, swcFilePathNameTempl, outFolderPathName)
-    status = importSwcOrOtherFile(swcFilePathName, 1)
+    // Unzip the archive with 7-Zip and rename the input SWC file
+    unzipArchiveWith7ZipAndRenameInputFile(inZipFilePathName, outFolderPathName, swcFilePathName)
     
-    return status
+    importSwcOrOtherFile(swcFilePathName)
 }
 
-// Import a file
-// $1 - 0/1 flag indicating whether import must be done in "Astro" style
-// $s2 - HOC command to repeat the top level call once again
-// $s3 - (Optional) Path to the input file; if omitted, then file browser will be shown
-// Returns 0/1 flag indicating success/error or -1 if waiting for user input
-func importHocOrSwcOrZipOrOtherFile() { local numArg, isError, status, whetherHocFileNeedsCorrection localobj file
-    strdef filePathName, fileExt
+// Import SWC or any other file supported by NLMorphologyConverter
+// $s1 - Input file path and name
+proc importSwcOrOtherFile() { local isSomaMissing
+    strdef inFilePathName
     
-    numArg = numarg()
-    if (numArg < 2 || numArg > 3) {
-        print "Import Failed: 2 or 3 input arguments expected"
-        return 1
+    inFilePathName = $s1
+    
+    isSomaMissing = checkIfSomaIsMissingInThisGeometryFile(inFilePathName)
+    
+    if (isSomaMissing) {
+        // Ask user to choose the cell type so we can insert soma of proper size
+        somaInsertionWidget = new SomaInsertionWidget(inFilePathName)
+        somaInsertionWidget.show()
+        
+        // Unfortunately, we have to exit all the call stack now even though user is still making a choice
+        // The "OK" button handler will call "importSwcOrOtherFile_afterChoice"
+        return
     }
     
-    isImportForAstro = $1
-    topLevelCallHocCommand = $s2
-    if (numArg == 3) {
-        filePathName = $s3
+    importSwcOrOtherFile_afterChoice(inFilePathName, -1)
+}
+
+// Import HOC file
+// $s1 - Input HOC file path and name
+// $2 - 0/1 flag indicating whether this proc is called after the file conversion stage
+// Other input: isImportForAstro (taken from top level)
+proc importHocFile() { local isCalledAfterConversion
+    strdef inFilePathName
+    
+    inFilePathName = $s1
+    isCalledAfterConversion = $2
+    
+    if (isImportForAstro) {
+        importHocFileForAstro(inFilePathName, isCalledAfterConversion)
+    } else {
+        importHocFileNotForAstro(inFilePathName, isCalledAfterConversion)
+    }
+}
+
+// Import HOC file for Astro
+// $s1 - Input HOC file path and name
+// $2 - 0/1 flag indicating whether this proc is called after the file conversion stage
+proc importHocFileForAstro() { local isCalledAfterConversion, isOldStyleAstroHocFile, needToShowImportedNamesWidget, defaultSomaNameIdx, defaultDendriteNameIdx localobj allNames
+    strdef inFilePathName, somaNameInImportedHocFile, dendriteNameInImportedHocFile
+    
+    inFilePathName = $s1
+    isCalledAfterConversion = $2
+    
+    // Try to load the HOC file with "load_file" and print some clues if failed
+    loadHocFile(inFilePathName)
+    
+    if (!isCalledAfterConversion) {
+        isOldStyleAstroHocFile = checkIfThisHocFileIsOfAstroOldStyle(filePathName)
+    } else {
+        isOldStyleAstroHocFile = 0
     }
     
-    if (!isRepeatedCall()) {
-        if (isSomethingImported) {
-            print "Import Failed:"
-            print "Cannot import two files in a row due to risk of top level names collision."
-            print "Please restart NEURON to clean up the namespace and then try again."
-            return 1
+    if (!isOldStyleAstroHocFile) {
+        // Loop by all sections created by the imported HOC file and prepare a list unique names
+        allNames = getAllSectionNames()
+        
+        if (allNames.count() == 0) {
+            printImportFailedMsgAndStop("The imported HOC file did not create any section")
         }
         
-        if (numArg == 2) {
-            file = new File()
-            file.chooser("r", "Load", "*.*", "Load", "Cancel", getcwd())
-            isError = (file.chooser() == 0)
-            if (isError) {
-                print "File wasn't selected"
-                return 1
-            }
+        if (!isCalledAfterConversion) {
+            // Try guess names used for soma and dendrites in the imported HOC file
+            // Also, check if user needs to select names from the lists manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
+            needToShowImportedNamesWidget = chooseDefaultSelectionsForSomaAndDendriteNamesForAstro(allNames, &defaultSomaNameIdx, &defaultDendriteNameIdx)
             
-            filePathName = file.getname
-        }
-        
-        userChoiceForInputFilePathName = filePathName
-    } else {
-        filePathName = userChoiceForInputFilePathName
-    }
-    
-    getFileExt(filePathName, fileExt)
-    
-    if (stringsEqual(fileExt, "hoc") || stringsEqual(fileExt, "HOC")) {
-        status = importHocFile(filePathName, 0)
-    } else {
-        if (unix_mac_pc() != 3) {
-            print "Import Failed: This file type can be imported only on Windows"
-            return 1
-        }
-        if (stringsEqual(fileExt, "zip") || stringsEqual(fileExt, "ZIP")) {
-            status = importSwcFileFromZipArchive(filePathName)
+            if (needToShowImportedNamesWidget) {
+                // Ask user to select names from the lists so we can import proper sections for soma and dendrites
+                importedNamesWidget = new ImportedNamesWidget(isCalledAfterConversion, isOldStyleAstroHocFile)
+                importedNamesWidget.showForAstro(allNames, defaultSomaNameIdx, defaultDendriteNameIdx)
+                
+                // Unfortunately, we have to exit all the call stack now even though user is still making a choice
+                // The "OK" button handler will call "importHocFileForAstro_afterChoice"
+                return
+            } else {
+                somaNameInImportedHocFile = allNames.o(defaultSomaNameIdx).s
+                dendriteNameInImportedHocFile = allNames.o(defaultDendriteNameIdx).s
+            }
         } else {
-            status = importSwcOrOtherFile(filePathName, 0)
+            // Standard names declared by NLMorphologyConverter in the output HOC file
+            somaNameInImportedHocFile = "soma"
+            dendriteNameInImportedHocFile = "dendrite"
+        }
+    } else {
+        // Standard names used in old-style HOC files (designed for Astro 1.0)
+        somaNameInImportedHocFile = "soma"
+        dendriteNameInImportedHocFile = "dendrite"
+    }
+    
+    importHocFileForAstro_afterChoice(isCalledAfterConversion, isOldStyleAstroHocFile, somaNameInImportedHocFile, dendriteNameInImportedHocFile)
+}
+
+// Import HOC file not for Astro
+// $s1 - Input HOC file path and name
+// $2 - 0/1 flag indicating whether this proc is called after the file conversion stage
+proc importHocFileNotForAstro() { local isCalledAfterConversion, isOldStyleAstroHocFile, needToShowImportedNameWidget, defaultSomaNameIdx localobj allNames
+    strdef inFilePathName, somaNameInImportedHocFile
+    
+    inFilePathName = $s1
+    isCalledAfterConversion = $2
+    
+    if (!isCalledAfterConversion) {
+        isOldStyleAstroHocFile = checkIfThisHocFileIsOfAstroOldStyle(inFilePathName)
+        if (isOldStyleAstroHocFile) {
+            printImportFailedMsgAndStop("Not implemented / Cannot import old-style Astro HOC file while working in non-Astro mode")
         }
     }
     
-    return status
+    // Try to load the HOC file with "load_file" and print some clues if failed
+    loadHocFile(inFilePathName)
+    
+    // Loop by all sections created by the imported HOC file and prepare a list unique names
+    allNames = getAllSectionNames()
+    
+    if (allNames.count() == 0) {
+        printImportFailedMsgAndStop("The imported HOC file did not create any section")
+    }
+    
+    if (!isCalledAfterConversion) {
+        // Try guess name used for soma in the imported HOC file
+        // Also, check if user needs to select name from the list manually (at least to confirm our choice), or the choice is so obvious that we can skip this stage
+        needToShowImportedNameWidget = chooseDefaultSelectionForSomaNameNotForAstro(allNames, &defaultSomaNameIdx)
+        
+        if (needToShowImportedNameWidget) {
+            // Ask user to select name from the list so we can import proper sections for soma
+            importedNamesWidget = new ImportedNamesWidget(isCalledAfterConversion)
+            importedNamesWidget.showNotForAstro(allNames, defaultSomaNameIdx)
+            
+            // Unfortunately, we have to exit all the call stack now even though user is still making a choice
+            // The "OK" button handler will call "importHocFileNotForAstro_afterChoice"
+            return
+        } else {
+            somaNameInImportedHocFile = allNames.o(defaultSomaNameIdx).s
+        }
+    } else {
+        // Standard name declared by NLMorphologyConverter in the output HOC file
+        somaNameInImportedHocFile = "soma"
+    }
+    
+    importHocFileNotForAstro_afterChoice(isCalledAfterConversion, somaNameInImportedHocFile)
 }

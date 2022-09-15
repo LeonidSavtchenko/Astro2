@@ -1,0 +1,97 @@
+
+// Import SWC or any other file supported by NLMorphologyConverter (part 2)
+// $s1 - Input file path and name
+// $2 - Soma size chosen by user (in um) or -1 if we won't insert a soma
+proc importSwcOrOtherFile_afterChoice() { local somaSizeOrMinusOne
+    strdef inFilePathName, hocFilePathName
+    
+    inFilePathName = $s1    
+    somaSizeOrMinusOne = $2
+    
+    // Convert the selected file to HOC with NLMorphologyConverter and save to the temporary folder
+    convertFileToHocWithNLMorphologyConverter(inFilePathName, somaSizeOrMinusOne, hocFilePathName)
+    
+    importHocFile(hocFilePathName, 1)
+}
+
+// Import HOC file for Astro (part 2)
+// $1 - 0/1 flag indicating whether this proc is called after the file conversion stage
+// $2 - 0/1 flag indicating whether the HOC file was designed to be input of Astro 1.0 and so follows the old style
+// $s3 - Soma section/section array name in the imported HOC file (choosen by user or importer)
+// $s4 - Dendrites section/section array name in the imported HOC file (choosen by user or importer)
+proc importHocFileForAstro_afterChoice() { local isCalledAfterConversion, isOldStyleAstroHocFile
+    strdef somaNameInImportedHocFile, dendriteNameInImportedHocFile
+    
+    isCalledAfterConversion = $1
+    isOldStyleAstroHocFile = $2
+    somaNameInImportedHocFile = $s3
+    dendriteNameInImportedHocFile = $s4
+    
+    if (stringsEqual(somaNameInImportedHocFile, dendriteNameInImportedHocFile)) {
+        printImportFailedMsgAndStop("Cannot use the same sections as soma and dendrite")
+    }
+    
+    if (stringsEqual(somaNameInImportedHocFile, "(no soma)")) {
+        printImportFailedMsgAndStop("Not implemented / Cannot add soma to HOC file")
+    }
+    
+    if (!isOldStyleAstroHocFile) {
+        // Initialize three top level scalars
+        OriginalDendrite = getNumberOfDendritesForAstro(dendriteNameInImportedHocFile)
+        if (OriginalDendrite == 1) {
+            // Just to avoid error with unclear message while trying to create empty _extraDendrite array
+            printImportFailedMsgAndStop("The case of only one dendrite is not supported")
+        }
+        NumberDendrites = OriginalDendrite + 2 * (OriginalDendrite - 1)
+        SeedNumber = OriginalDendrite - 1
+    }
+    
+    // Showing geometry after soma insertion and maximum error checks, just before adding some placeholder sections
+    showImportedGeometry()
+    
+    if (!isOldStyleAstroHocFile) {
+        // Allocate extra space for dendrites
+        allocateExtraDendritesForAstroNewStyleHocFile(NumberDendrites - OriginalDendrite)
+    }
+    
+    // Create references to soma and dendrite sections
+    // (soma_ref and dendrite_ref are initialized on the top level)
+    createSomaAndDendriteReferencesForAstro(somaNameInImportedHocFile, dendriteNameInImportedHocFile, isOldStyleAstroHocFile)
+    
+    // Ask user about the next steps
+    showImportCompleteWidget(isCalledAfterConversion)
+}
+
+// Import HOC file not for Astro (part 2)
+// $1 - 0/1 flag indicating whether this proc is called after the file conversion stage
+// $s2 - Soma section/section array name in the imported HOC file (choosen by user or importer)
+proc importHocFileNotForAstro_afterChoice() { local isCalledAfterConversion
+    strdef somaNameInImportedHocFile
+    
+    isCalledAfterConversion = $1
+    somaNameInImportedHocFile = $s2
+    
+    if (stringsEqual(somaNameInImportedHocFile, "(no soma)")) {
+        printImportFailedMsgAndStop("Not implemented / Cannot add soma to HOC file")
+    }
+    
+    // Showing geometry after soma insertion and maximum error checks
+    showImportedGeometry()
+    
+    // Create references to soma sections
+    // (soma_ref is initialized on the top level)
+    createSomaReferencesNotForAstro(somaNameInImportedHocFile)
+    
+    // Ask user about the next steps
+    showImportCompleteWidget(isCalledAfterConversion)
+}
+
+// Ask user about the next steps
+// $1 - 0/1 flag indicating whether this proc is called after the file conversion stage
+proc showImportCompleteWidget() { local isCalledAfterConversion
+    isCalledAfterConversion = $1
+    
+    importCompleteWidget = new ImportCompleteWidget()
+    importCompleteWidget.show(isCalledAfterConversion)
+}
+    

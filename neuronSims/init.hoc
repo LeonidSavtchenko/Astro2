@@ -56,16 +56,15 @@ proc showSelectedGeometry() {
 
 // Loads geometry file.
 proc loadGeometryFile() {
-    importHocOrSwcOrZipOrOtherFile(1, "loadGeometryFile()")
+    importHocOrSwcOrZipOrOtherFile(1)
 }
 //************************************************************************
 // Geometry of EndFoot
-proc loadGeometryEndFootFile() { local status
-    status = importHocOrSwcOrZipOrOtherFile(1, "loadGeometryEndFootFile()")
-    if (status != 0) {
-        return
-    }
-    
+proc loadGeometryEndFootFile() {
+    importHocOrSwcOrZipOrOtherFile(1, "loadGeometryEndFootFile_afterImport()")
+}
+
+proc loadGeometryEndFootFile_afterImport() {
 	MD=1    // Initial diameter of main branch 
 	ML=101  // Initial length of main branch
 	SD =1   // Initial diameter of small branch
@@ -88,12 +87,11 @@ ScaleGeometryParameters=1 // 1 is artificial astrocyte geometry
 //************************************************************************
 // Loads geometry file of reconstructed Astrocyte.
 // The parameter allows to fir the data file to the real geometry
-proc loadGeometryFileReconstract() { local status
-    status = importHocOrSwcOrZipOrOtherFile(1, "loadGeometryFileReconstract()")
-    if (status != 0) {
-        return
-    }
-    
+proc loadGeometryFileReconstract() {
+    importHocOrSwcOrZipOrOtherFile(1, "loadGeometryFileReconstract_afterImport()")
+}
+
+proc loadGeometryFileReconstract_afterImport() {
     ScaleGeometryParameters=2
     load_file("StrechXY.hoc")
 	//*************************************************************************************

@@ -31,10 +31,10 @@ obfunc getAllSectionNames() { local isFound, idx localobj secNames, strFunc
     return secNames
 }
 
-// Get the number of dendrites in the imported geometry (OriginalDendrite)
+// Get the number of dendrites in the imported geometry (OriginalDendrite) when doing import for Astro
 // $s1 - The dendrite section name (either array or object)
 // Returns OriginalDendrite
-func getNumberOfDendrites() { local numDend
+func getNumberOfDendritesForAstro() { local numDend
     strdef dendriteSectionName, findSecRegex
     
     dendriteSectionName = $s1
@@ -54,4 +54,24 @@ func getNumberOfDendrites() { local numDend
     }
     
     return numDend
+}
+
+// Allocate extra space for dendrites when doing import for Astro, but loading new-style HOC file
+// $1 - The number of extra dendrites to create
+// Output: _extraDendrite section array (created on the top level; this array won't be accessed directly anywhere outside the importer)
+proc allocateExtraDendritesForAstroNewStyleHocFile() {
+    strdef hocCommand
+    
+    numExtraDend = $1
+    
+    sprint(hocCommand, "create _extraDendrite[%d]", numExtraDend)
+    execute(hocCommand)
+}
+
+// Delete all sections
+// (The names remain declared and cannot be used for anything else than creating new sections and section arrays)
+proc deleteAllSections() {
+    forall {
+        delete_section()
+    }
 }

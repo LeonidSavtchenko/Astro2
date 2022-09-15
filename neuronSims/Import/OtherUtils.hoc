@@ -1,4 +1,22 @@
 
+// Print error message and stop
+// $s1 - The message
+proc printImportFailedMsgAndStop() {
+    strdef msg
+    msg = $s1
+    printf("Import Failed: %s\n", msg)
+    stop
+}
+
+// Print bulleted list of all strings
+// $o1 - The List of String objects
+proc printListOfStrings() { local idx localobj list
+    list = $o1
+    for (idx = 0; idx < list.count(); idx += 1) {
+        printf("    * %s\n", list.o(idx).s)
+    }
+}
+
 // Get file extension
 // $s1 - File path and name
 // $s2 - (Output) The file extension (without dot)
@@ -22,34 +40,6 @@ proc getFileExt() { localobj strFunc
     $s2 = fileExt
 }
 
-// Create or clean up the temporary folder
-// $s1 - The temporary folder relative path and name
-// Returns 0/1 flag indicating success/error
-func createOrCleanUpTempFolder() { local sysComRes, isError
-    strdef tempFolderRelPathName, tempFolderPathName, sysCommandTempl, command
-    
-    tempFolderRelPathName = $s1
-    
-    sprint(tempFolderPathName, "%s%s", getcwd(), tempFolderRelPathName)
-    sysCommandTempl = "if not exist \"%s\" (mkdir \"%s\") else (rmdir /s /q \"%s\" && mkdir \"%s\")"
-    sprint(command, sysCommandTempl, tempFolderPathName, tempFolderPathName, tempFolderPathName, tempFolderPathName)
-    sysComRes = system(command)
-    isError = (sysComRes != 0)
-    if (isError) {
-        print "Import Failed: Cannot create or clean up the temporary folder"
-    }
-    return isError
-}
-
-// Print all strings from the list
-// $o1 - The List of String objects
-proc printListOfStrings() { local idx localobj list
-    list = $o1
-    for (idx = 0; idx < list.count(); idx += 1) {
-        printf("    * %s\n", list.o(idx).s)
-    }
-}
-
 // Make a shallow copy of this List
 // $o1 - The List
 // Returns The copy
@@ -65,7 +55,7 @@ obfunc makeShallowCopyOfList() { local idx localobj inList, outList
 // Inner search cycle used when we try to guess names used for soma and dendrites in the imported HOC file
 // $o1 - Names of sections created in the imported HOC file (List of String objects)
 // $o2 - The tested names (List of String objects)
-// $3 - 0/1 flag to select the predicate: 1 for stringsEqual, 0 for containsSubstring
+// $3 - 0/1 flag to select the predicate: 1 for "stringsEqual", 0 for "containsSubstring"
 // Returns The index of hit or -1 if all miss
 func smallSearchCycle() { local predicateSelector, testedNameIdx, createdNameidx, isMatch localobj createdNames, testedNames
     strdef testedName, createdName
@@ -159,7 +149,7 @@ func chooseDefaultSelectionsForSomaAndDendriteNamesForAstro() { local numNames, 
     
     if (numNames == 0) {
         print "Bug in Importer: Code contract violation"
-        0/0
+        stop
     } else if (numNames == 1) {
         // Some special case
         $&2 = -1
@@ -238,7 +228,7 @@ func chooseDefaultSelectionsForSomaAndDendriteNamesForAstro() { local numNames, 
     
     if (defaultSomaNameIdx == defaultDendriteNameIdx || defaultDendriteNameIdx == -1) {
         print "Bug in Importer: Code contract violation"
-        0/0
+        stop
     }
     
     $&2 = defaultSomaNameIdx
@@ -257,7 +247,7 @@ func chooseDefaultSelectionForSomaNameNotForAstro() { local needToShowImportedNa
     
     if (allNames.count() == 0) {
         print "Bug in Importer: Code contract violation"
-        0/0
+        stop
     }
     
     // Look for the best match for soma
@@ -267,4 +257,64 @@ func chooseDefaultSelectionForSomaNameNotForAstro() { local needToShowImportedNa
     
     $&2 = defaultSomaNameIdx
     return needToShowImportedNameWidget
+}
+
+// Try to load the HOC file with "load_file" and print some clues if failed
+// $s1 - Input HOC file path and name
+// Output: All new top-level declarations from the file
+proc loadHocFile() { local status
+    strdef inFilePathName
+    
+    inFilePathName = $s1
+    
+    status = load_file(1, inFilePathName)
+    
+    if (!status) {
+        print "Import Failed: The loaded HOC file"
+        print "    * Either has some internal error"
+        print "    * Or tries to declare a name reserved by the importer"
+        if (isSomethingImported) {
+            print "    * Or tries to declare a name already declared by other HOC file imported earlier"
+        }
+        stop
+    }
+    
+    isSomethingImported = 1
+}
+
+// Show imported geometry sketch
+// Input: isImportForAstro (taken from top level)
+proc showImportedGeometry() {
+    if (isImportForAstro) {
+        // This proc is defined in Astro
+        showSelectedGeometry()
+    } else {
+        showImportedGeometry_importer()
+    }
+}
+
+// Choose the output location and export the resulting HOC file
+proc chooseOutLocationAndExportHocFile() { localobj file
+    
+    file = new File()
+    file.chooser("w", "Export", "*.hoc", "Save", "Cancel", getcwd())
+    if (!file.chooser()) {
+        // User decided not to export anything
+        return
+    }
+    
+    // Copy HOC file from the temporary folder to the specified location
+    copyHocFile(file.getname)
+}
+
+// Cleanup before the next import
+// Input: isImportForAstro (taken from top level)
+proc cleanupBeforeNextImport() {
+    deleteAllSectionRefs()
+    deleteAllSections()
+    if (isImportForAstro) {
+        OriginalDendrite = -1
+        NumberDendrites = -1
+        SeedNumber = -1
+    }
 }

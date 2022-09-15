@@ -1,0 +1,75 @@
+
+objref importCompleteWidget
+
+
+begintemplate ImportCompleteWidget
+
+    public show
+    
+    // User choice made with UI
+    userChoiceWhetherToSaveHocFile = 0
+    
+    objref vBox
+    
+    external isImportForAstro, importCompleteHandler
+    external chooseOutLocationAndExportHocFile, cleanupBeforeNextImport
+    
+    // Ask user whether to proceed with this file (optionally saving it as HOC somewhere) or import other one
+    // $1 - 0/1 flag indicating whether this proc is called after the file conversion stage
+    proc show() { local isCalledAfterConversion
+        isCalledAfterConversion = $1
+        
+        vBox = new VBox()
+        vBox.intercept(1)
+        xpanel("Import complete")
+        xlabel("Do you want to proceed with this file or import other one?")
+        if (isCalledAfterConversion) {
+            xcheckbox("Save HOC file", &userChoiceWhetherToSaveHocFile)
+        } else {
+            userChoiceWhetherToSaveHocFile = 0
+        }
+        xbutton("Use this", "useThisHandler()")
+        xbutton("Import other", "importOtherHandler()")
+        xpanel()
+        vBox.dismiss_action("dismissHandler()")
+        vBox.intercept(0)
+        vBox.map("Import complete", 550, 350, -1, -1)
+    }
+    
+    // Handler of "Use this" button for the widget
+    proc useThisHandler() {
+        // Close the widget
+        vBox.unmap()
+        
+        if (userChoiceWhetherToSaveHocFile) {
+            chooseOutLocationAndExportHocFile()
+        }
+        
+        execute(importCompleteHandler)
+    }
+    
+    // Handler of "Import other" button for the widget
+    proc importOtherHandler() {
+        strdef hocCommandTempl, hocCommand
+        
+        // Close the widget
+        vBox.unmap()
+        
+        if (userChoiceWhetherToSaveHocFile) {
+            chooseOutLocationAndExportHocFile()
+        }
+        
+        cleanupBeforeNextImport()
+        
+        hocCommandTempl = "importHocOrSwcOrZipOrOtherFile(%d, \"%s\")"
+        sprint(hocCommand, hocCommandTempl, isImportForAstro, importCompleteHandler)
+        execute(hocCommand)     // The proc will be defined after sourcing this file, but before calling this proc
+    }
+    
+    // Handler of "X" button for the widget
+    proc dismissHandler() {
+        // Close the widget
+        vBox.unmap()
+    }
+
+endtemplate ImportCompleteWidget

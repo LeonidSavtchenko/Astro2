@@ -34,107 +34,37 @@ func checkIfThisHocFileIsOfAstroOldStyle() { local isOfOldStyle, len localobj in
 
 // Check if this geometry file does not define soma
 // $s1 - Input file path and name
-// $2 - 0/1 flag indicating whether to skip the temporary folder clean up stage
-// $&3 - (Output) 0/1 flag indicating whether soma is missing
-// Returns 0/1 flag indicating success/error
-func checkIfSomaIsMissingInThisGeometryFile() { local isNoCleanUpMode, isError, sysComRes, len, idx, numSomas, isSomaMissing localobj inFile, strFunc
-    strdef inFilePathName, appPathNameTempl, appPathName, outFilePathNameTempl, outFilePathName, sysCommandTempl, command, inLine, numSomasStr
+// Returns 0/1 flag indicating whether soma is missing
+func checkIfSomaIsMissingInThisGeometryFile() { local len, idx, numSomas, isSomaMissing localobj inFile, strFunc
+    strdef inFilePathName, outFilePathNameTempl, outFilePathName, inLine, numSomasStr
     
     inFilePathName = $s1
-    isNoCleanUpMode = $2
     
-    if (!isNoCleanUpMode) {
-        // Create the temporary folder if necessary
-        isError = createOrCleanUpTempFolder("Import/temp_folder")
-        if (isError) {
-            return 1
-        }
-    }
-    
-    // Test the selected file with NLMorphologyConverter to check if it defines soma
-    appPathNameTempl = "%sImport/3rdParty/NLMorphologyConverter/NLMorphologyConverter.exe"
-    sprint(appPathName, appPathNameTempl, getcwd())
+    // Test the selected file with NLMorphologyConverter
     outFilePathNameTempl = "%sImport/temp_folder/last_report.log"
     sprint(outFilePathName, outFilePathNameTempl, getcwd())
-    sysCommandTempl = "call \"%s\" \"%s\" --report \"%s\""
-    sprint(command, sysCommandTempl, appPathName, inFilePathName, outFilePathName)
-    sysComRes = system(command)
-    if (sysComRes != 0) {
-        // Just for sanity. Actually, NLMorphologyConverter does not return error codes, but rather prints a message
-        print "Import Failed: Cannot test the file with NLMorphologyConverter"
-        return 1
-    }
+    createReportFileWithNLMorphologyConverter(inFilePathName, outFilePathName)
     
     // Open just created report file for reading
     inFile = new File()
     inFile.ropen(outFilePathName)
     
+    // Analyze the report file
     strFunc = new StringFunctions()
-    
     while (1) {
         len = inFile.gets(inLine)
         if (len == -1) {
-            isError = 1
-            break
+            printImportFailedMsgAndStop("Cannot analyze the report file created by NLMorphologyConverter")
         }
         idx = strFunc.tail(inLine, "Number of Somas:", numSomasStr)
         if (idx != -1) {
             sscanf(numSomasStr, "%d", &numSomas)
             isSomaMissing = (numSomas == 0)
-            isError = 0
             break
         }
     }
     
     inFile.close()
     
-    if (isError) {
-        print "Import Failed: Cannot test the file with NLMorphologyConverter"
-        return 1
-    }
-    
-    $&3 = isSomaMissing
-    
-    return 0
-}
-
-// Check if the imported HOC file declares any top level names which will collide with those ones reserved by the importer
-// Input: isImportForAstro (taken from top level)
-// $1 - 0/1 flag indicating that HOC file was designed to be input of Astro 1.0, and so follows the old style (used only if isImportForAstro)
-// Returns 0/1 flag indicating ok/error
-func checkTopLevelNamesCollision() { local isOldStyleAstroHocFile, idx localobj reservedNames, collidedNames, strFunc
-    isOldStyleAstroHocFile = $1
-    
-    reservedNames = new List()
-    collidedNames = new List()
-    strFunc = new StringFunctions()
-    
-    reservedNames.append(new String("soma_ref"))
-    if (isImportForAstro) {
-        reservedNames.append(new String("dendrite_ref"))
-        if (!isOldStyleAstroHocFile) {
-            reservedNames.append(new String("_extraDendrite"))
-        }
-    }
-    reservedNames.append(new String("_secRef"))
-    
-    for (idx = 0; idx < reservedNames.count(); idx += 1) {
-        if (strFunc.is_name(reservedNames.o(idx).s)) {
-            collidedNames.append(reservedNames.o(idx))
-        }
-    }
-    
-    if (collidedNames.count() != 0) {
-        print "Import Failed:"
-        print "The importer reserves several names on the top level for its own needs."
-        print "If these names are declared in the imported HOC file, names collision will happen."
-        print "Please do some renaming in the HOC file so we can import it correctly."
-        print "These names must be changed:"
-        printListOfStrings(collidedNames)
-        print "The list of names reserved by the importer:"
-        printListOfStrings(reservedNames)
-        return 1
-    }
-    
-    return 0
+    return isSomaMissing
 }
