@@ -1,4 +1,22 @@
 
+// Create a copy of the first "*.CNG.swc" file in just unzipped folder giving it fixed name
+// $s1 - The unzipped folder path and name
+// $s2 - The destination file name
+proc copyAndRenameFirstSwcFile() { local status
+    strdef folderPathName, outSwcFileName, pyCommandTempl, command
+    
+    folderPathName = $s1
+    outSwcFileName = $s2
+    
+    pyCommandTempl = "import glob\nimport shutil\nfor file in glob.glob('%s/*.CNG.swc'):\n    shutil.copy(file, '%s/%s')\n    break"
+    sprint(command, pyCommandTempl, folderPathName, folderPathName, outSwcFileName)
+    
+    status = nrnpython(command)
+    if (!status) {
+        printImportFailedMsgAndStop("Cannot create a copy of the first \"*.CNG.swc\" file in just unzipped folder")
+    }
+}
+
 // Copy HOC file from the temporary folder to the specified location
 // $s1 - The destination file path and name
 proc copyHocFile() { local status

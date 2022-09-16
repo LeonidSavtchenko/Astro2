@@ -21,7 +21,7 @@ proc createOrCleanUpTempFolder() { local status
 // $s2 - Output folder path and name
 // $s3 (Output) - The SWC file path and name
 proc unzipArchiveWith7ZipAndRenameInputFile() { local status
-    strdef inZipFilePathName, appPathNameTempl, appPathName, outFolderPathName, sysCommandTempl, outSwcFileName, sysCommand, outSwcFilePathName
+    strdef inZipFilePathName, appPathNameTempl, appPathName, outFolderPathName, sysCommandTempl, sysCommand, outSwcFileName, outSwcFilePathName
     
     inZipFilePathName = $s1
     outFolderPathName = $s2
@@ -36,15 +36,9 @@ proc unzipArchiveWith7ZipAndRenameInputFile() { local status
         printImportFailedMsgAndStop("Cannot unzip the archive with 7-Zip")
     }
     
-    // Rename the file *.CNG.swc to input_file.swc
-    sysCommandTempl = "cd \"%s\" && ren *.CNG.swc %s 2> NUL"
+    // Create a copy of the first "*.CNG.swc" file in just unzipped folder giving it fixed name
     outSwcFileName = "input_file.swc"
-    sprint(sysCommand, sysCommandTempl, outFolderPathName, outSwcFileName)
-    status = system(sysCommand)
-    if (status) {
-        // Maybe just more than one swc-file in the archive, so only the first one is renamed successfully
-        // printImportFailedMsgAndStop("Cannot rename the input SWC file")
-    }
+    copyAndRenameFirstSwcFile(outFolderPathName, outSwcFileName)
     
     sprint(outSwcFilePathName, "%s/%s", outFolderPathName, outSwcFileName)
     $s3 = outSwcFilePathName
